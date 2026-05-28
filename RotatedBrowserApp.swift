@@ -27,7 +27,7 @@ class RotatedWindow: NSWindow {
             }
             
             let physicalPoint = event.locationInWindow
-            let PH = self.frame.height
+            let PH = self.frame.height - 28
             
             // 1. Direct Intercept for physically rotated SwiftUI Navigation Bar
             // The nav bar resides visually on the physical left edge (x: 0..100) due to 90 deg CW rotation.
@@ -89,6 +89,14 @@ class RotatedWindow: NSWindow {
                     clickCount: event.clickCount,
                     pressure: event.pressure
                 ) {
+                    // Only apply coordinate conversion bypass for SwiftUI private gesture views (not native fields/text views)
+                    let shouldBypass = className.contains("SwiftUI") && !className.contains("Text") && !className.contains("Field")
+                    
+                    if shouldBypass {
+                        EventForwardingState.isForwardingEvent = true
+                    }
+                    defer { EventForwardingState.isForwardingEvent = false }
+                    
                     if event.type == .leftMouseDown { hitView.mouseDown(with: translatedEvent) }
                     else if event.type == .leftMouseUp { hitView.mouseUp(with: translatedEvent) }
                     else if event.type == .rightMouseDown { hitView.rightMouseDown(with: translatedEvent) }
@@ -179,6 +187,40 @@ class RotatedContainerView: NSView {
     }
 }
 
+struct EventForwardingState {
+    static var isForwardingEvent = false
+}
+
+class RotatedHostingView<Content: View>: NSHostingView<Content> {
+    override func convert(_ point: NSPoint, from view: NSView?) -> NSPoint {
+        if EventForwardingState.isForwardingEvent {
+            return point
+        }
+        return super.convert(point, from: view)
+    }
+
+    override func convert(_ point: NSPoint, to view: NSView?) -> NSPoint {
+        if EventForwardingState.isForwardingEvent {
+            return point
+        }
+        return super.convert(point, to: view)
+    }
+
+    override func convert(_ rect: NSRect, from view: NSView?) -> NSRect {
+        if EventForwardingState.isForwardingEvent {
+            return rect
+        }
+        return super.convert(rect, from: view)
+    }
+
+    override func convert(_ rect: NSRect, to view: NSView?) -> NSRect {
+        if EventForwardingState.isForwardingEvent {
+            return rect
+        }
+        return super.convert(rect, to: view)
+    }
+}
+
 class StableWindowController: NSObject, NSWindowDelegate {
     static let shared = StableWindowController()
     var window: NSWindow?
@@ -191,7 +233,8 @@ class StableWindowController: NSObject, NSWindowDelegate {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         
-        let logicalW = screenFrame.height
+        let titleBarHeight: CGFloat = 28
+        let logicalW = screenFrame.height - titleBarHeight
         let logicalH = screenFrame.width
         
         let win = RotatedWindow(
@@ -213,9 +256,14 @@ class StableWindowController: NSObject, NSWindowDelegate {
         let container = RotatedContainerView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
         win.contentView = container
         
-        let hostingView = NSHostingView(rootView: ContentView().frame(width: logicalW, height: logicalH))
+        let hostingView = RotatedHostingView(rootView: ContentView().frame(width: logicalW, height: logicalH))
         
-        hostingView.frame = NSRect(x: (screenFrame.width - logicalW)/2, y: (screenFrame.height - logicalH)/2, width: logicalW, height: logicalH)
+        hostingView.frame = NSRect(
+            x: (screenFrame.width - logicalW) / 2,
+            y: (screenFrame.height - titleBarHeight - logicalH) / 2,
+            width: logicalW,
+            height: logicalH
+        )
         hostingView.frameCenterRotation = -90 // -90 CCW = 90 CW (Physical Top = Logical Left)
         
         container.addSubview(hostingView)

@@ -22,6 +22,11 @@ struct ContentView: View {
     // Helper to dynamically resolve local PDF path/URL safely
     var parsedPDFURL: URL? {
         if defaultPDFLocation.isEmpty { return nil }
+        let path = defaultPDFLocation.replacingOccurrences(of: "file://", with: "")
+        guard FileManager.default.fileExists(atPath: path) else {
+            print("PDF File does not exist at path: \(path)")
+            return nil
+        }
         if defaultPDFLocation.hasPrefix("file://") {
             return URL(string: defaultPDFLocation)
         }
@@ -38,20 +43,43 @@ struct ContentView: View {
                             .id("tab-0")
                     } else if selectedTab == 1 {
                         ZStack {
-                            Color.blue.opacity(0.05)
-                            PDFViewWrapper(url: parsedPDFURL)
-                            
-                            if parsedPDFURL == nil {
-                                VStack(spacing: 12) {
-                                    Image(systemName: "doc.text")
-                                        .font(.system(size: 64))
-                                        .foregroundColor(.blue.opacity(0.6))
+                            if let pdfURL = parsedPDFURL {
+                                PDFViewWrapper(url: pdfURL)
+                            } else {
+                                // Solid dark background — no .ignoresSafeArea()
+                                Color(red: 0.08, green: 0.08, blue: 0.15)
+                                
+                                VStack(spacing: 24) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.blue.opacity(0.15))
+                                            .frame(width: 160, height: 160)
+                                        Image(systemName: "doc.text.fill")
+                                            .font(.system(size: 64, weight: .light))
+                                            .foregroundColor(.cyan)
+                                    }
+                                    
                                     Text("No PDF Document Loaded")
                                         .font(.system(size: 28, weight: .bold, design: .rounded))
-                                        .foregroundColor(.blue)
-                                    Text("Configure a default file in Setting (⌘3)")
-                                        .font(.title3)
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Open Settings (⌘3) and browse for a PDF file")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.5))
+                                    
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "gear")
+                                            .font(.system(size: 14))
+                                        Text("Setting → PDF Setting → Browse...")
+                                            .font(.system(size: 14, design: .monospaced))
+                                    }
+                                    .foregroundColor(.cyan.opacity(0.8))
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.cyan.opacity(0.25), lineWidth: 1)
+                                    )
                                 }
                             }
                         }
