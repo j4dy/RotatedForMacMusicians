@@ -28,13 +28,16 @@ class RotatedWindow: NSWindow {
             
             let physicalPoint = event.locationInWindow
             
+            let isFullScreen = self.styleMask.contains(.fullScreen)
+            let titleBarHeight: CGFloat = isFullScreen ? 0 : 28
+            
             // Allow native macOS window control buttons and titlebar dragging to work
-            if physicalPoint.y >= self.frame.height - 28 {
+            if !isFullScreen && physicalPoint.y >= self.frame.height - 28 {
                 super.sendEvent(event)
                 return
             }
             
-            let PH = self.frame.height - 28
+            let PH = self.frame.height - titleBarHeight
             
             // 1. Direct Intercept for physically rotated SwiftUI Navigation Bar
             // The nav bar resides visually on the physical left edge (x: 0..100) due to 90 deg CW rotation.
@@ -235,6 +238,7 @@ class RotatedHostingView<Content: View>: NSHostingView<Content> {
 class StableWindowController: NSObject, NSWindowDelegate {
     static let shared = StableWindowController()
     var window: NSWindow?
+    var initialLogicalW: CGFloat = 0
     
     func setup() {
         if self.window != nil { return }
@@ -247,6 +251,8 @@ class StableWindowController: NSObject, NSWindowDelegate {
         let titleBarHeight: CGFloat = 28
         let logicalW = screenFrame.height - titleBarHeight
         let logicalH = screenFrame.width
+        
+        self.initialLogicalW = logicalW
         
         let win = RotatedWindow(
             contentRect: screenFrame,
@@ -268,7 +274,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         let container = RotatedContainerView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
         win.contentView = container
         
-        let hostingView = RotatedHostingView(rootView: ContentView().frame(width: logicalW, height: logicalH))
+        let hostingView = RotatedHostingView(rootView: ContentView().frame(width: logicalW).frame(maxHeight: .infinity))
         
         hostingView.frame = NSRect(
             x: (screenFrame.width - logicalW) / 2,
@@ -298,6 +304,43 @@ class StableWindowController: NSObject, NSWindowDelegate {
             }
             if NSApp.isActive && !win.isKeyWindow { win.makeKey() }
         }
+    }
+    
+    func layoutViews() {
+        guard let win = window,
+              let container = win.contentView as? RotatedContainerView,
+              let hostingView = container.subviews.first else { return }
+        
+        let containerFrame = container.bounds
+        let isFullScreen = win.styleMask.contains(.fullScreen)
+        let titleBarHeight: CGFloat = isFullScreen ? 0 : 28
+        
+        // Only recalculate the width after rotation (which is logicalH, the physical width of the window container)
+        let currentLogicalH = containerFrame.width
+        
+        // Safely update the frame of a rotated NSView in AppKit by resetting rotation first
+        hostingView.frameCenterRotation = 0
+        
+        hostingView.frame = NSRect(
+            x: (containerFrame.width - initialLogicalW) / 2,
+            y: (containerFrame.height - titleBarHeight - currentLogicalH) / 2,
+            width: initialLogicalW,
+            height: currentLogicalH
+        )
+        
+        hostingView.frameCenterRotation = -90
+    }
+    
+    func windowDidResize(_ notification: Notification) {
+        layoutViews()
+    }
+    
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        layoutViews()
+    }
+    
+    func windowDidExitFullScreen(_ notification: Notification) {
+        layoutViews()
     }
     
     func windowWillClose(_ notification: Notification) {
