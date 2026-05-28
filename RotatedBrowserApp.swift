@@ -314,5 +314,10 @@ struct RotatedBrowserApp: App {
             Color.clear.frame(width: 0, height: 0).hidden()
         }
         .windowStyle(.hiddenTitleBar)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                // Completely removes standard "New Window" (Cmd+N)
+            }
+        }
     }
 }
