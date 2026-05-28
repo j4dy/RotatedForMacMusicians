@@ -164,6 +164,10 @@ class RotatedWindow: NSWindow {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
                 return
             }
+            if mods.contains(.command) && event.charactersIgnoringModifiers == "f" {
+                self.toggleFullScreen(nil)
+                return
+            }
             if mods.contains(.control) && event.keyCode == 48 {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleTab"), object: nil)
                 return
@@ -259,6 +263,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         win.isReleasedWhenClosed = false
         win.acceptsMouseMovedEvents = true
         win.backgroundColor = .white
+        win.collectionBehavior = [.fullScreenPrimary, .managed]
         
         let container = RotatedContainerView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
         win.contentView = container
@@ -288,7 +293,9 @@ class StableWindowController: NSObject, NSWindowDelegate {
         }
         
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if win.level != .floating { win.level = .floating }
+            if !win.styleMask.contains(.fullScreen) {
+                if win.level != .floating { win.level = .floating }
+            }
             if NSApp.isActive && !win.isKeyWindow { win.makeKey() }
         }
     }
