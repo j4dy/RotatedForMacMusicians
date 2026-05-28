@@ -278,10 +278,24 @@ class StableWindowController: NSObject, NSWindowDelegate {
         win.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
         
+        // Auto-close any standard SwiftUI-generated windows to keep exactly one single RotatedWindow active
+        DispatchQueue.main.async {
+            for window in NSApplication.shared.windows {
+                if !(window is RotatedWindow) {
+                    window.close()
+                }
+            }
+        }
+        
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if win.level != .floating { win.level = .floating }
             if NSApp.isActive && !win.isKeyWindow { win.makeKey() }
         }
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        print("RotatedWindow closing - terminating application")
+        NSApplication.shared.terminate(nil)
     }
 }
 
