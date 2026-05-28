@@ -170,6 +170,15 @@ class RotatedWindow: NSWindow {
     }
 }
 
+class RotatedContainerView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hostingView = self.subviews.first else {
+            return super.hitTest(point)
+        }
+        return hostingView.hitTest(point)
+    }
+}
+
 class StableWindowController: NSObject, NSWindowDelegate {
     static let shared = StableWindowController()
     var window: NSWindow?
@@ -201,7 +210,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         win.acceptsMouseMovedEvents = true
         win.backgroundColor = .white
         
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
+        let container = RotatedContainerView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
         win.contentView = container
         
         let hostingView = NSHostingView(rootView: ContentView().frame(width: logicalW, height: logicalH))

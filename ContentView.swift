@@ -158,6 +158,10 @@ struct SettingsView: View {
     @Binding var defaultPDFLocation: String
     @Binding var isRotatedMouseEnabled: Bool
     
+    // Custom premium focus ring states
+    @FocusState private var isURLFocused: Bool
+    @FocusState private var isPDFFocused: Bool
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
@@ -174,8 +178,21 @@ struct SettingsView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondary)
                         TextField("Enter default URL (e.g., https://www.wikipedia.org)", text: $defaultURL)
-                            .textFieldStyle(.roundedBorder)
+                            .textFieldStyle(.plain)
                             .font(.system(.body, design: .monospaced))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(NSColor.controlBackgroundColor))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(isURLFocused ? Color.blue : Color.gray.opacity(0.3), lineWidth: isURLFocused ? 2 : 1)
+                                    .shadow(color: isURLFocused ? Color.blue.opacity(0.3) : Color.clear, radius: 4)
+                            )
+                            .focused($isURLFocused)
+                            .focusEffectDisabled()
                     }
                 }
                 
@@ -187,8 +204,21 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                         HStack(spacing: 12) {
                             TextField("Absolute local path or file:// URL", text: $defaultPDFLocation)
-                                .textFieldStyle(.roundedBorder)
+                                .textFieldStyle(.plain)
                                 .font(.system(.body, design: .monospaced))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isPDFFocused ? Color.blue : Color.gray.opacity(0.3), lineWidth: isPDFFocused ? 2 : 1)
+                                        .shadow(color: isPDFFocused ? Color.blue.opacity(0.3) : Color.clear, radius: 4)
+                                )
+                                .focused($isPDFFocused)
+                                .focusEffectDisabled()
                             
                             Button(action: {
                                 selectPDFFile()
