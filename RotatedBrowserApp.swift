@@ -27,6 +27,13 @@ class RotatedWindow: NSWindow {
             }
             
             let physicalPoint = event.locationInWindow
+            
+            // Allow native macOS window control buttons and titlebar dragging to work
+            if physicalPoint.y >= self.frame.height - 28 {
+                super.sendEvent(event)
+                return
+            }
+            
             let PH = self.frame.height - 28
             
             // 1. Direct Intercept for physically rotated SwiftUI Navigation Bar
