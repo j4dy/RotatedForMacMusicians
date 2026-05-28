@@ -124,35 +124,48 @@ class RotatedWindow: NSWindow {
             super.sendEvent(event)
             return
             
+        case .scrollWheel:
+            guard let contentView = self.contentView else {
+                super.sendEvent(event)
+                return
+            }
+            
+            let physicalPoint = event.locationInWindow
+            if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
+                let className = hitView.className
+                if className.contains("WK") || className.contains("PDF") || className.contains("Focusable") {
+                    if let cgEvent = event.cgEvent?.copy() {
+                        let dy = cgEvent.getDoubleValueField(.scrollWheelEventDeltaAxis1)
+                        let dx = cgEvent.getDoubleValueField(.scrollWheelEventDeltaAxis2)
+                        
+                        // Physical vertical scrolling -> physical horizontal (axis 2) with inversion.
+                        // Physical horizontal scrolling -> physical vertical (axis 1).
+                        cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis1, value: dx)
+                        cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis2, value: -dy)
+                        
+                        // Also remap the higher resolution fixed point deltas (fields 93 and 94)
+                        if let field93 = CGEventField(rawValue: 93), let field94 = CGEventField(rawValue: 94) {
+                            let fdy = cgEvent.getDoubleValueField(field93)
+                            let fdx = cgEvent.getDoubleValueField(field94)
+                            cgEvent.setDoubleValueField(field93, value: fdx)
+                            cgEvent.setDoubleValueField(field94, value: -fdy)
+                        }
+                        
+                        if let remappedEvent = NSEvent(cgEvent: cgEvent) {
+                            hitView.scrollWheel(with: remappedEvent)
+                            return
+                        }
+                    }
+                }
+            }
+            super.sendEvent(event)
+            return
+            
         default:
             break
         }
 
-        // Intercept scroll wheel to fix logical scroll direction in rotated view
-        if event.type == .scrollWheel {
-            let eventCopy = event.cgEvent?.copy()
-            if let cgEvent = eventCopy {
-                let oldPointY = cgEvent.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
-                let oldPointX = cgEvent.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
-                let oldLineY = cgEvent.getIntegerValueField(.scrollWheelEventDeltaAxis1)
-                let oldLineX = cgEvent.getIntegerValueField(.scrollWheelEventDeltaAxis2)
-                let oldFixedY = cgEvent.getIntegerValueField(.scrollWheelEventFixedPtDeltaAxis1)
-                let oldFixedX = cgEvent.getIntegerValueField(.scrollWheelEventFixedPtDeltaAxis2)
-                
-                cgEvent.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: -oldPointX)
-                cgEvent.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: oldPointY)
-                cgEvent.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: -oldLineX)
-                cgEvent.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: oldLineY)
-                cgEvent.setIntegerValueField(.scrollWheelEventFixedPtDeltaAxis1, value: -oldFixedX)
-                cgEvent.setIntegerValueField(.scrollWheelEventFixedPtDeltaAxis2, value: oldFixedY)
-                
-                if let mappedEvent = NSEvent(cgEvent: cgEvent) {
-                    super.sendEvent(mappedEvent)
-                    return
-                }
-            }
-        }
-        
+
         if event.type == .keyDown {
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if mods.contains(.command) && event.charactersIgnoringModifiers == "1" {

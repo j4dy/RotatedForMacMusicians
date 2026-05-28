@@ -23,10 +23,27 @@ struct ContentView: View {
     var parsedPDFURL: URL? {
         if defaultPDFLocation.isEmpty { return nil }
         let path = defaultPDFLocation.replacingOccurrences(of: "file://", with: "")
-        guard FileManager.default.fileExists(atPath: path) else {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else {
             print("PDF File does not exist at path: \(path)")
             return nil
         }
+        
+        if isDir.boolValue {
+            // Directory mode: automatically find and load the first PDF file inside
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(atPath: path)
+                if let firstPDF = contents.filter({ $0.lowercased().hasSuffix(".pdf") }).sorted().first {
+                    let filePath = (path as NSString).appendingPathComponent(firstPDF)
+                    print("Auto-resolved directory PDF to first match: \(filePath)")
+                    return URL(fileURLWithPath: filePath)
+                }
+            } catch {
+                print("Error scanning PDF directory: \(error)")
+            }
+            return nil
+        }
+        
         if defaultPDFLocation.hasPrefix("file://") {
             return URL(string: defaultPDFLocation)
         }
@@ -177,6 +194,11 @@ struct ContentView: View {
             }
         }
         .edgesIgnoringSafeArea(.all)
+        .onAppear {
+            if defaultPDFLocation.isEmpty {
+                defaultPDFLocation = NSHomeDirectory()
+            }
+        }
     }
 }
 
