@@ -37,18 +37,23 @@ class RotatedWindow: NSWindow {
             
             // 1. Direct Intercept for physically rotated SwiftUI Navigation Bar
             // The nav bar resides visually on the physical left edge (x: 0..100) due to 90 deg CW rotation.
-            // In logical space, the buttons occupy halves of the logical width (PH).
+            // In logical space, the buttons occupy thirds of the logical width (PH).
             if physicalPoint.x >= 0 && physicalPoint.x <= 100 {
                 if event.type == .leftMouseDown {
-                    // Physical top half maps to logical left (Browser)
-                    if physicalPoint.y >= PH / 2 && physicalPoint.y <= PH {
+                    // Physical top third maps to logical left (Browser)
+                    if physicalPoint.y >= 2 * PH / 3 && physicalPoint.y <= PH {
                         print("Direct Click: Switched to Browser")
                         NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
                     }
-                    // Physical bottom half maps to logical right (PDF)
-                    else if physicalPoint.y >= 0 && physicalPoint.y < PH / 2 {
+                    // Physical middle third maps to logical middle (PDF)
+                    else if physicalPoint.y >= PH / 3 && physicalPoint.y < 2 * PH / 3 {
                         print("Direct Click: Switched to PDF")
                         NotificationCenter.default.post(name: NSNotification.Name("SwitchToPDF"), object: nil)
+                    }
+                    // Physical bottom third maps to logical right (Setting)
+                    else if physicalPoint.y >= 0 && physicalPoint.y < PH / 3 {
+                        print("Direct Click: Switched to Setting")
+                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
                     }
                 }
                 return
@@ -123,6 +128,11 @@ class RotatedWindow: NSWindow {
             // Cmd+2 for PDF
             if mods.contains(.command) && event.charactersIgnoringModifiers == "2" {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToPDF"), object: nil)
+                return
+            }
+            // Cmd+3 for Setting
+            if mods.contains(.command) && event.charactersIgnoringModifiers == "3" {
+                NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
                 return
             }
             // Ctrl+Tab to toggle
