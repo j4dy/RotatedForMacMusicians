@@ -91,12 +91,64 @@ class RotatedWindow: NSWindow {
 }
 
 class RotatedHostingView<Content: View>: NSHostingView<Content> {
+    private var isPerformingStandardHitTest = false
+    private var lastCheckedEvent: NSEvent?
+    private var cachedBypassResult = false
+    
+    private func shouldBypassRotation() -> Bool {
+        if isPerformingStandardHitTest { return true }
+        guard let window = self.window else { return true }
+        guard let currentEvent = window.currentEvent else { return true }
+        
+        if lastCheckedEvent === currentEvent {
+            return cachedBypassResult
+        }
+        
+        lastCheckedEvent = currentEvent
+        
+        isPerformingStandardHitTest = true
+        defer { isPerformingStandardHitTest = false }
+        
+        guard let contentView = window.contentView else {
+            cachedBypassResult = false
+            return false
+        }
+        
+        let physicalPoint = currentEvent.locationInWindow
+        if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
+            let className = hitView.className
+            if className.contains("WK") || className.contains("PDF") || className.contains("Focusable") {
+                cachedBypassResult = true
+                return true
+            }
+        }
+        
+        cachedBypassResult = false
+        return false
+    }
+    
+    private func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
+        let localPoint = view.convert(physicalPoint, from: view.superview)
+        if !view.bounds.contains(localPoint) {
+            return nil
+        }
+        for subview in view.subviews.reversed() {
+            if let target = findTargetView(in: subview, physicalPoint: localPoint) {
+                return target
+            }
+        }
+        return view
+    }
+    
     override func convert(_ point: NSPoint, from view: NSView?) -> NSPoint {
         if let event = self.window?.currentEvent {
             switch event.type {
             case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
                  .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
                  .cursorUpdate:
+                if shouldBypassRotation() {
+                    break
+                }
                 let winPoint = view?.convert(point, to: nil) ?? point
                 let winH = self.window?.frame.height ?? 0
                 let lx = winH - winPoint.y
@@ -115,6 +167,9 @@ class RotatedHostingView<Content: View>: NSHostingView<Content> {
             case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
                  .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
                  .cursorUpdate:
+                if shouldBypassRotation() {
+                    break
+                }
                 let winH = self.window?.frame.height ?? 0
                 let px = point.y
                 let py = winH - point.x
@@ -133,6 +188,9 @@ class RotatedHostingView<Content: View>: NSHostingView<Content> {
             case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
                  .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
                  .cursorUpdate:
+                if shouldBypassRotation() {
+                    break
+                }
                 let p1 = rect.origin
                 let p2 = NSPoint(x: rect.maxX, y: rect.maxY)
                 let lp1 = self.convert(p1, from: view)
@@ -156,6 +214,9 @@ class RotatedHostingView<Content: View>: NSHostingView<Content> {
             case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
                  .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
                  .cursorUpdate:
+                if shouldBypassRotation() {
+                    break
+                }
                 let p1 = rect.origin
                 let p2 = NSPoint(x: rect.maxX, y: rect.maxY)
                 let pp1 = self.convert(p1, to: view)
