@@ -3,35 +3,10 @@ import AppKit
 
 class RotatedWindow: NSWindow {
     
-    // Recursive hit-test function that respects visual transforms
-    func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
-        // Convert the point to this view's local coordinate system
-        let localPoint = view.convert(physicalPoint, from: view.superview)
-        
-        // If the point is not inside this view's bounds, return nil
-        if !view.bounds.contains(localPoint) {
-            return nil
-        }
-        
-        // Recursively check subviews from front to back
-        for subview in view.subviews.reversed() {
-            if let target = findTargetView(in: subview, physicalPoint: localPoint) {
-                return target
-            }
-        }
-        
-        return view
-    }
-
     override func sendEvent(_ event: NSEvent) {
         switch event.type {
         case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
              .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
-            guard let contentView = self.contentView else {
-                super.sendEvent(event)
-                return
-            }
-            
             let physicalPoint = event.locationInWindow
             let PH = self.frame.height
             
@@ -59,27 +34,6 @@ class RotatedWindow: NSWindow {
                 return
             }
             
-            // 2. Find the exact Cocoa view under the physical mouse cursor for Web/PDF routing
-            if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
-                let className = hitView.className
-                
-                // If it's a native Cocoa view like FocusableWebView or PDFView (or their descendants),
-                // we forward the original physical event because they support rotation-aware conversion natively.
-                if className.contains("WK") || className.contains("PDF") || className.contains("Focusable") {
-                    if event.type == .leftMouseDown { hitView.mouseDown(with: event) }
-                    else if event.type == .leftMouseUp { hitView.mouseUp(with: event) }
-                    else if event.type == .rightMouseDown { hitView.rightMouseDown(with: event) }
-                    else if event.type == .rightMouseUp { hitView.rightMouseUp(with: event) }
-                    else if event.type == .otherMouseDown { hitView.otherMouseDown(with: event) }
-                    else if event.type == .otherMouseUp { hitView.otherMouseUp(with: event) }
-                    else if event.type == .mouseMoved { hitView.mouseMoved(with: event) }
-                    else if event.type == .leftMouseDragged { hitView.mouseDragged(with: event) }
-                    else if event.type == .rightMouseDragged { hitView.rightMouseDragged(with: event) }
-                    else if event.type == .otherMouseDragged { hitView.otherMouseDragged(with: event) }
-                    return
-                }
-            }
-            
             super.sendEvent(event)
             return
             
@@ -89,9 +43,6 @@ class RotatedWindow: NSWindow {
 
         // Intercept scroll wheel to fix logical scroll direction in rotated view
         if event.type == .scrollWheel {
-            // For 90 degree CW rotation (Physical Top = Logical Left)
-            // If user pushes wheel forward (deltaY > 0 physical UP), we want content to move physically DOWN?
-            // Actually, we swap delta X and Y for a natural physical feel
             let eventCopy = event.cgEvent?.copy()
             if let cgEvent = eventCopy {
                 let oldPointY = cgEvent.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
@@ -101,9 +52,6 @@ class RotatedWindow: NSWindow {
                 let oldFixedY = cgEvent.getIntegerValueField(.scrollWheelEventFixedPtDeltaAxis1)
                 let oldFixedX = cgEvent.getIntegerValueField(.scrollWheelEventFixedPtDeltaAxis2)
                 
-                // We map physical delta to logical delta
-                // Physical UP (dy > 0) -> Logical RIGHT (dx = dy)
-                // Physical RIGHT (dx > 0) -> Logical DOWN (dy = -dx)
                 cgEvent.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: -oldPointX)
                 cgEvent.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: oldPointY)
                 cgEvent.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: -oldLineX)
@@ -120,40 +68,109 @@ class RotatedWindow: NSWindow {
         
         if event.type == .keyDown {
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            // Cmd+1 for Browser
             if mods.contains(.command) && event.charactersIgnoringModifiers == "1" {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
                 return
             }
-            // Cmd+2 for PDF
             if mods.contains(.command) && event.charactersIgnoringModifiers == "2" {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToPDF"), object: nil)
                 return
             }
-            // Cmd+3 for Setting
             if mods.contains(.command) && event.charactersIgnoringModifiers == "3" {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
                 return
             }
-            // Ctrl+Tab to toggle
             if mods.contains(.control) && event.keyCode == 48 {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleTab"), object: nil)
                 return
             }
         }
         
-        // Keyboard passthrough to ensure WKWebView gets the events directly when rotated
-        if event.type == .keyDown || event.type == .keyUp {
-            if let responder = self.firstResponder as? NSView {
-                let className = responder.className
-                if className.contains("WK") || className.contains("TextField") {
-                    if event.type == .keyDown { responder.keyDown(with: event); return }
-                    else { responder.keyUp(with: event); return }
-                }
+        super.sendEvent(event)
+    }
+}
+
+class RotatedHostingView<Content: View>: NSHostingView<Content> {
+    override func convert(_ point: NSPoint, from view: NSView?) -> NSPoint {
+        if let event = self.window?.currentEvent {
+            switch event.type {
+            case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
+                 .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
+                 .cursorUpdate:
+                let winPoint = view?.convert(point, to: nil) ?? point
+                let winH = self.window?.frame.height ?? 0
+                let lx = winH - winPoint.y
+                let ly = winPoint.x
+                return NSPoint(x: lx, y: ly)
+            default:
+                break
             }
         }
-        
-        super.sendEvent(event)
+        return super.convert(point, from: view)
+    }
+
+    override func convert(_ point: NSPoint, to view: NSView?) -> NSPoint {
+        if let event = self.window?.currentEvent {
+            switch event.type {
+            case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
+                 .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
+                 .cursorUpdate:
+                let winH = self.window?.frame.height ?? 0
+                let px = point.y
+                let py = winH - point.x
+                let winPoint = NSPoint(x: px, y: py)
+                return view?.convert(winPoint, from: nil) ?? winPoint
+            default:
+                break
+            }
+        }
+        return super.convert(point, to: view)
+    }
+
+    override func convert(_ rect: NSRect, from view: NSView?) -> NSRect {
+        if let event = self.window?.currentEvent {
+            switch event.type {
+            case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
+                 .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
+                 .cursorUpdate:
+                let p1 = rect.origin
+                let p2 = NSPoint(x: rect.maxX, y: rect.maxY)
+                let lp1 = self.convert(p1, from: view)
+                let lp2 = self.convert(p2, from: view)
+                return NSRect(
+                    x: min(lp1.x, lp2.x),
+                    y: min(lp1.y, lp2.y),
+                    width: abs(lp1.x - lp2.x),
+                    height: abs(lp1.y - lp2.y)
+                )
+            default:
+                break
+            }
+        }
+        return super.convert(rect, from: view)
+    }
+
+    override func convert(_ rect: NSRect, to view: NSView?) -> NSRect {
+        if let event = self.window?.currentEvent {
+            switch event.type {
+            case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
+                 .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited,
+                 .cursorUpdate:
+                let p1 = rect.origin
+                let p2 = NSPoint(x: rect.maxX, y: rect.maxY)
+                let pp1 = self.convert(p1, to: view)
+                let pp2 = self.convert(p2, to: view)
+                return NSRect(
+                    x: min(pp1.x, pp2.x),
+                    y: min(pp1.y, pp2.y),
+                    width: abs(pp1.x - pp2.x),
+                    height: abs(pp1.y - pp2.y)
+                )
+            default:
+                break
+            }
+        }
+        return super.convert(rect, to: view)
     }
 }
 
@@ -191,7 +208,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
         win.contentView = container
         
-        let hostingView = NSHostingView(rootView: ContentView().frame(width: logicalW, height: logicalH))
+        let hostingView = RotatedHostingView(rootView: ContentView().frame(width: logicalW, height: logicalH))
         
         hostingView.frame = NSRect(x: (screenFrame.width - logicalW)/2, y: (screenFrame.height - logicalH)/2, width: logicalW, height: logicalH)
         hostingView.frameCenterRotation = -90 // -90 CCW = 90 CW (Physical Top = Logical Left)
