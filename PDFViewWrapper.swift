@@ -1,8 +1,21 @@
+/*
+ SUMMARY OF RENDERING ARCHITECTURE & ROTATED PDF DISCREPANCIES:
+ 
+ - WantsLayer (recursive): Forces layer-backing recursively on PDFView and its internal page subviews. Under physically rotated frame views (frameCenterRotation = 90 or -90), this transforms coordinate calculations in CoreAnimation tiled layers (CATiledLayer), causing the tiled renderer to miscalculate the visible viewport and render only a portion of the page (leaving the rest blank white but interactive).
+ - WantsLayer = false: Disables CoreAnimation layers on the PDFView hierarchy, forcing AppKit to fall back to standard synchronous vector drawRect rendering directly into the rotated window's backing store. This avoids viewport miscalculation but is still subject to AppKit rendering restrictions under complex view rotation.
+ 
+ DIFF COMPARISON AGAINST origin/main:
+ 1. PDFViewWrapper.makeNSView sets pdfView.wantsLayer = false.
+ 2. PDFViewWrapper.updateNSView sets nsView.wantsLayer = false.
+ 3. Removed configureHighResolution(for:scale:) and its recursive layer configurations.
+ */
+
 import SwiftUI
 import PDFKit
 
 class ScrollablePDFView: PDFView {
     private var registered = false
+    
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         super.viewWillMove(toWindow: newWindow)
         if newWindow != nil && !registered {
@@ -71,6 +84,7 @@ struct PDFViewWrapper: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PDFView {
         let pdfView = ScrollablePDFView()
+        pdfView.wantsLayer = false // Explicitly disable layer backing on the PDFView itself
         pdfView.backgroundColor = .white
         pdfView.interpolationQuality = .high
         pdfView.displayMode = .singlePage // Show only 1 page at a time
@@ -108,16 +122,11 @@ struct PDFViewWrapper: NSViewRepresentable {
             }
         }
         
-        // Dynamically ensure high resolution contentsScale matches current window DPI
-        let scale = nsView.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        
         // Force high-quality rendering options and Light Mode appearance
         nsView.interpolationQuality = .high
         nsView.backgroundColor = .white
         nsView.appearance = NSAppearance(named: .aqua) // Explicitly force Light Mode (Aqua)
-        
-        // Recursively configure all subview layers for crisp Retina scaling under rotation
-        configureHighResolution(for: nsView, scale: scale)
+        nsView.wantsLayer = false // Explicitly ensure layer backing remains disabled
     }
     
     func makeCoordinator() -> Coordinator {
@@ -178,19 +187,6 @@ struct PDFViewWrapper: NSViewRepresentable {
         
         deinit {
             NotificationCenter.default.removeObserver(self)
-        }
-    }
-    
-    private func configureHighResolution(for view: NSView, scale: CGFloat) {
-        view.wantsLayer = true
-        if let layer = view.layer {
-            layer.contentsScale = scale
-            layer.rasterizationScale = scale
-            layer.shouldRasterize = false
-            layer.magnificationFilter = .linear
-        }
-        for subview in view.subviews {
-            configureHighResolution(for: subview, scale: scale)
         }
     }
 }
