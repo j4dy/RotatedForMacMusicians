@@ -4,6 +4,8 @@ import AppKit
 class RotatedWindow: NSWindow {
     static var pressedKeys = Set<UInt16>()
     static var pendingNavigationWorkItem: DispatchWorkItem?
+    static var lastWarpPoint: NSPoint?
+    static var activeCursorPos: CGPoint?
     
     // Recursive hit-test function that respects visual transforms
     func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
@@ -33,6 +35,72 @@ class RotatedWindow: NSWindow {
     }
 
     override func sendEvent(_ event: NSEvent) {
+        // Programmatic Warp Event Intercept: Ignore events synthesized by our own cursor warping to break the runaway feedback loop
+        let currentPoint = NSEvent.mouseLocation
+        if let lastWarp = RotatedWindow.lastWarpPoint {
+            let distance = hypot(currentPoint.x - lastWarp.x, currentPoint.y - lastWarp.y)
+            if distance < 1.5 {
+                RotatedWindow.lastWarpPoint = nil
+                super.sendEvent(event)
+                return
+            }
+        }
+
+        // Rotated Mouse Option: Remap physical mouse movement deltas to align with rotated view orientation
+        let isRotatedMouse = UserDefaults.standard.bool(forKey: "isRotatedMouseEnabled")
+        if isRotatedMouse && (event.type == .mouseMoved || event.type == .leftMouseDragged || event.type == .rightMouseDragged || event.type == .otherMouseDragged) {
+            let mouseLoc = event.locationInWindow
+            let windowFrame = self.frame
+            
+            // Constrain remapping strictly to when the mouse cursor is physically within this NSWindow
+            let isInsideWindow = mouseLoc.x >= 0 && mouseLoc.x <= windowFrame.width &&
+                                 mouseLoc.y >= 0 && mouseLoc.y <= windowFrame.height
+            
+            if self.isKeyWindow && isInsideWindow {
+                let dx = event.deltaX
+                let dy = event.deltaY
+                if dx != 0 || dy != 0 {
+                    let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
+                    if let primaryScreen = NSScreen.screens.first {
+                        let primaryHeight = primaryScreen.frame.height
+                        let cgCurrent = CGPoint(x: currentPoint.x, y: primaryHeight - currentPoint.y)
+                        
+                        // Initialize running cursor position on first movement in the window
+                        let basePos = RotatedWindow.activeCursorPos ?? cgCurrent
+                        
+                        let rotatedDX: CGFloat
+                        let rotatedDY: CGFloat
+                        if isLeft {
+                            rotatedDX = dy
+                            rotatedDY = -dx
+                        } else {
+                            rotatedDX = -dy
+                            rotatedDY = dx
+                        }
+                        
+                        // Accumulate deltas directly onto the baseline, completely bypassing unrotated system displacement!
+                        let warpX = basePos.x + rotatedDX
+                        let warpY = basePos.y + rotatedDY
+                        
+                        let newCGPos = CGPoint(x: warpX, y: warpY)
+                        RotatedWindow.activeCursorPos = newCGPos
+                        
+                        // Convert back to AppKit coordinates to identify and ignore the subsequent synthesized event
+                        let warpAppKit = CGPoint(x: warpX, y: primaryHeight - warpY)
+                        RotatedWindow.lastWarpPoint = warpAppKit
+                        
+                        CGWarpMouseCursorPosition(newCGPos)
+                    }
+                }
+            } else {
+                // Reset baseline when cursor leaves the window bounds so it resyncs perfectly next time it enters
+                RotatedWindow.activeCursorPos = nil
+            }
+        } else if isRotatedMouse {
+            // Reset baseline on non-movement events
+            RotatedWindow.activeCursorPos = nil
+        }
+
         switch event.type {
         case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
              .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
