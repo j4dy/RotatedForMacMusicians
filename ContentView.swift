@@ -3,6 +3,7 @@ import PDFKit
 
 struct ActiveTabState {
     static var selectedTab: Int = 0
+    static var isSelectorModeActive: Bool = true
 }
 
 struct ContentView: View {
@@ -19,6 +20,7 @@ struct ContentView: View {
     
     @State private var selectedPDFFileURL: URL? = nil
     @State private var isShowingDirectorySelector = false
+    @State private var directorySelectedIndex = 0
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -143,7 +145,20 @@ struct ContentView: View {
                                     }
                                     .disabled(pdfCurrentPageIndex >= pdfTotalPageCount - 1)
                                     .buttonStyle(.plain)
+                                    
+                                    Spacer()
+                                    
+                                    // Active PDF File Name display
+                                    Text(pdfURL.lastPathComponent)
+                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                        .foregroundColor(.white.opacity(0.85))
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 4)
+                                        .background(Color.white.opacity(0.12))
+                                        .cornerRadius(6)
                                 }
+                                .padding(.horizontal, 16)
                                 .padding(.vertical, 6)
                                 .frame(maxWidth: .infinity)
                                 .background(Color.black.opacity(0.85))
@@ -152,6 +167,7 @@ struct ContentView: View {
                                 DirectorySelectorView(
                                     folderPath: defaultPDFLocation.isEmpty ? "No Folder Configured" : defaultPDFLocation,
                                     files: pdfFiles,
+                                    selectedIndex: $directorySelectedIndex,
                                     onSelect: { fileURL in
                                         selectedPDFFileURL = fileURL
                                         isShowingDirectorySelector = false
@@ -242,6 +258,14 @@ struct ContentView: View {
             selectedTab = 2
             print("Switched to Setting via shortcut")
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TabNavigateLeft"))) { _ in
+            selectedTab = (selectedTab - 1 + 3) % 3
+            print("Navigated Tab Left via arrow to: \(selectedTab)")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TabNavigateRight"))) { _ in
+            selectedTab = (selectedTab + 1) % 3
+            print("Navigated Tab Right via arrow to: \(selectedTab)")
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleTab"))) { _ in
             selectedTab = (selectedTab + 1) % 3
             print("Toggled tab via shortcut to: \(selectedTab)")
@@ -253,6 +277,39 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleRotateLeft"))) { _ in
             isRotateLeftEnabled.toggle()
             print("Toggled Rotate Left via shortcut: \(isRotateLeftEnabled)")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFTriggerEnterAction"))) { _ in
+            if selectedTab == 1 {
+                if isShowingDirectorySelector || activePDFURL == nil {
+                    // Enter key triggers selection of the highlighted PDF file
+                    if directorySelectedIndex >= 0 && directorySelectedIndex < pdfFiles.count {
+                        let selectedFile = pdfFiles[directorySelectedIndex]
+                        selectedPDFFileURL = selectedFile
+                        isShowingDirectorySelector = false
+                        print("Enter Triggered: Selected highlighted PDF \(selectedFile.lastPathComponent)")
+                    } else if let firstFile = pdfFiles.first {
+                        selectedPDFFileURL = firstFile
+                        isShowingDirectorySelector = false
+                        print("Enter Triggered (Fallback): Selected first PDF \(firstFile.lastPathComponent)")
+                    }
+                } else {
+                    // In PDF viewer mode: Enter acts as Folder toggle button to return to selection mode
+                    isShowingDirectorySelector = true
+                    print("Enter Triggered: Switched to PDF Selector mode")
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFNavigateSelectionUp"))) { _ in
+            if selectedTab == 1 && isShowingDirectorySelector && !pdfFiles.isEmpty {
+                directorySelectedIndex = (directorySelectedIndex - 1 + pdfFiles.count) % pdfFiles.count
+                print("Navigation Up: new index \(directorySelectedIndex)")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFNavigateSelectionDown"))) { _ in
+            if selectedTab == 1 && isShowingDirectorySelector && !pdfFiles.isEmpty {
+                directorySelectedIndex = (directorySelectedIndex + 1) % pdfFiles.count
+                print("Navigation Down: new index \(directorySelectedIndex)")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFShowFolderSelector"))) { _ in
             isShowingDirectorySelector = true
@@ -271,10 +328,23 @@ struct ContentView: View {
             if defaultPDFLocation.isEmpty {
                 defaultPDFLocation = NSHomeDirectory()
             }
+            // Always start in Selector Mode so we don't automatically display the PDF until Enter is explicitly pressed
+            isShowingDirectorySelector = true
             ActiveTabState.selectedTab = selectedTab
+            ActiveTabState.isSelectorModeActive = true
         }
         .onChange(of: selectedTab) { oldValue, newValue in
             ActiveTabState.selectedTab = newValue
+            if newValue == 1 {
+                isShowingDirectorySelector = true
+                ActiveTabState.isSelectorModeActive = true
+            }
+        }
+        .onChange(of: isShowingDirectorySelector) { oldValue, newValue in
+            ActiveTabState.isSelectorModeActive = newValue || activePDFURL == nil
+        }
+        .onChange(of: activePDFURL) { oldValue, newValue in
+            ActiveTabState.isSelectorModeActive = isShowingDirectorySelector || newValue == nil
         }
         .onChange(of: isRotateLeftEnabled) { oldValue, newValue in
             DispatchQueue.main.async {
@@ -283,7 +353,8 @@ struct ContentView: View {
         }
         .onChange(of: defaultPDFLocation) { oldValue, newValue in
             selectedPDFFileURL = nil
-            isShowingDirectorySelector = false
+            isShowingDirectorySelector = true
+            ActiveTabState.isSelectorModeActive = true
         }
     }
 }
@@ -539,6 +610,7 @@ struct SettingsCard<Content: View>: View {
 struct DirectorySelectorView: View {
     let folderPath: String
     let files: [URL]
+    @Binding var selectedIndex: Int
     let onSelect: (URL) -> Void
     
     var body: some View {
@@ -594,24 +666,25 @@ struct DirectorySelectorView: View {
                 } else {
                     // List of files
                     VStack(spacing: 12) {
-                        ForEach(files, id: \.self) { fileURL in
+                        ForEach(Array(files.enumerated()), id: \.offset) { index, fileURL in
                             Button(action: {
+                                selectedIndex = index
                                 onSelect(fileURL)
                             }) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.cyan.opacity(0.15))
+                                            .fill(selectedIndex == index ? Color.blue.opacity(0.2) : Color.cyan.opacity(0.15))
                                             .frame(width: 48, height: 48)
-                                        Image(systemName: "doc.text.fill")
+                                        Image(systemName: selectedIndex == index ? "doc.text.fill" : "doc.text")
                                             .font(.system(size: 22))
-                                            .foregroundColor(.cyan)
+                                            .foregroundColor(selectedIndex == index ? .blue : .cyan)
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(fileURL.lastPathComponent)
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(.primary)
+                                            .font(.system(size: 15, weight: selectedIndex == index ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == index ? .blue : .primary)
                                             .lineLimit(1)
                                             .multilineTextAlignment(.leading)
                                         
@@ -624,17 +697,17 @@ struct DirectorySelectorView: View {
                                     
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.secondary.opacity(0.5))
+                                        .foregroundColor(selectedIndex == index ? .blue : .secondary.opacity(0.5))
                                 }
                                 .padding(14)
                                 .background(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .fill(Color(NSColor.controlBackgroundColor))
-                                        .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
+                                        .fill(selectedIndex == index ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == index ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+                                        .stroke(selectedIndex == index ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == index ? 2 : 1)
                                 )
                             }
                             .buttonStyle(.plain)

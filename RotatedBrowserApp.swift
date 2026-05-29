@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 class RotatedWindow: NSWindow {
+    static var pressedKeys = Set<UInt16>()
     
     // Recursive hit-test function that respects visual transforms
     func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
@@ -256,20 +257,53 @@ class RotatedWindow: NSWindow {
             break
         }
 
-
         if event.type == .keyDown {
-            // Left/Right Arrow Key Page navigation when in PDF tab
-            if ActiveTabState.selectedTab == 1 {
-                if event.keyCode == 123 { // Left Arrow
-                    NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
-                    return
-                }
-                if event.keyCode == 124 { // Right Arrow
-                    NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+            RotatedWindow.pressedKeys.insert(event.keyCode)
+            
+            // Check for simultaneous Left (123) + Right (124)
+            let hasLeft = RotatedWindow.pressedKeys.contains(123)
+            let hasRight = RotatedWindow.pressedKeys.contains(124)
+            // Enter key (36 is Return, 76 is Numpad Enter)
+            let isEnter = event.keyCode == 36 || event.keyCode == 76
+            
+            if (hasLeft && hasRight) || isEnter {
+                if ActiveTabState.selectedTab == 1 {
+                    print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
+                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
                     return
                 }
             }
+            
+            // Left/Right Arrow key behavior
+            if event.keyCode == 123 { // Left Arrow
+                if ActiveTabState.selectedTab == 1 {
+                    if ActiveTabState.isSelectorModeActive {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionUp"), object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                    }
+                } else {
+                    NotificationCenter.default.post(name: NSNotification.Name("TabNavigateLeft"), object: nil)
+                }
+                return
+            }
+            if event.keyCode == 124 { // Right Arrow
+                if ActiveTabState.selectedTab == 1 {
+                    if ActiveTabState.isSelectorModeActive {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionDown"), object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                    }
+                } else {
+                    NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)
+                }
+                return
+            }
+        } else if event.type == .keyUp {
+            RotatedWindow.pressedKeys.remove(event.keyCode)
+        }
 
+        if event.type == .keyDown {
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if mods.contains(.command) && event.charactersIgnoringModifiers == "1" {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
