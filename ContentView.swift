@@ -666,7 +666,8 @@ struct DirectorySelectorView: View {
                 } else {
                     // List of files
                     VStack(spacing: 12) {
-                        ForEach(Array(files.enumerated()), id: \.offset) { index, fileURL in
+                        ForEach(0..<files.count, id: \.self) { index in
+                            let fileURL = files[index]
                             Button(action: {
                                 selectedIndex = index
                                 onSelect(fileURL)
