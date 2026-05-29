@@ -17,6 +17,19 @@ class RotatedWindow: NSWindow {
         return view
     }
 
+    // Recursive check to see if a view or any of its ancestors is a native web/PDF view
+    func isNativeView(_ view: NSView) -> Bool {
+        var current: NSView? = view
+        while let v = current {
+            let name = v.className
+            if name.contains("WK") || name.contains("PDF") || name.contains("Focusable") {
+                return true
+            }
+            current = v.superview
+        }
+        return false
+    }
+
     override func sendEvent(_ event: NSEvent) {
         switch event.type {
         case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
@@ -129,7 +142,7 @@ class RotatedWindow: NSWindow {
                 
                 // Pathway A: Native Cocoa Views (WKWebView, PDFView)
                 // Forward the original physical event directly.
-                if className.contains("WK") || className.contains("PDF") || className.contains("Focusable") {
+                if isNativeView(hitView) {
                     if event.type == .leftMouseDown { hitView.mouseDown(with: event) }
                     else if event.type == .leftMouseUp { hitView.mouseUp(with: event) }
                     else if event.type == .rightMouseDown { hitView.rightMouseDown(with: event) }
