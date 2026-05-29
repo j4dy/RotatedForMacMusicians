@@ -647,6 +647,18 @@
         </div>
     </section>
 
+    <!-- Architecture Section -->
+    <section id="architecture-section" style="padding: 100px 40px; max-width: 1200px; margin: 0 auto; border-top: 1px solid var(--card-border);">
+        <div class="section-header">
+            <h2 class="section-title">System Architecture &amp; Coordinate Flow</h2>
+            <p class="section-subtitle">Deep dive into how the app intercepts window event queues, applies rotation offsets, and routes events back into the SwiftUI hierarchy.</p>
+        </div>
+        <div class="architecture-container" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 40px; text-align: center; box-shadow: var(--glow);">
+            <img src="architecture.png" alt="System Architecture Diagram" class="architecture-img" id="architecture-diagram" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 45px rgba(0,0,0,0.5); margin: 0 auto 30px auto; display: block;">
+            <p style="color: var(--text-muted); font-size: 1rem; max-width: 700px; margin: 0 auto;">Our specialized Cocoa event router intercepts low-level window events, bypasses standard coordinates conversion, and remaps clicks based on real-time hardware orientation. This guarantees WKWebView and PDFView remain fully functional under rotation.</p>
+        </div>
+    </section>
+
     <!-- Quickstart Guide Section -->
     <section id="setup-section">
         <div class="setup-container">
