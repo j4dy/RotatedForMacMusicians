@@ -209,6 +209,11 @@ struct ContentView: View {
                 defaultPDFLocation = NSHomeDirectory()
             }
         }
+        .onChange(of: isRotateLeftEnabled) { _ in
+            DispatchQueue.main.async {
+                StableWindowController.shared.layoutViews()
+            }
+        }
     }
 }
 

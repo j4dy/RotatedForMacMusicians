@@ -38,26 +38,45 @@ class RotatedWindow: NSWindow {
             }
             
             let PH = self.frame.height - titleBarHeight
+            let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
             
             // 1. Direct Intercept for physically rotated SwiftUI Navigation Bar
-            // The nav bar resides visually on the physical left edge (x: 0..100) due to 90 deg CW rotation.
-            // In logical space, the buttons occupy thirds of the logical width (PH).
-            if physicalPoint.x >= 0 && physicalPoint.x <= 100 {
+            // For Rotate Right (-90 CCW / 90 CW): Nav bar resides physically on left edge (x: 0..100)
+            // For Rotate Left (90 CCW): Nav bar resides physically on right edge (x >= frame.width - 100)
+            let isNavBarArea = isLeft ? (physicalPoint.x >= self.frame.width - 100) : (physicalPoint.x >= 0 && physicalPoint.x <= 100)
+            if isNavBarArea {
                 if event.type == .leftMouseDown {
-                    // Physical top third maps to logical left (Browser)
-                    if physicalPoint.y >= 2 * PH / 3 && physicalPoint.y <= PH {
-                        print("Direct Click: Switched to Browser")
-                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
-                    }
-                    // Physical middle third maps to logical middle (PDF)
-                    else if physicalPoint.y >= PH / 3 && physicalPoint.y < 2 * PH / 3 {
-                        print("Direct Click: Switched to PDF")
-                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToPDF"), object: nil)
-                    }
-                    // Physical bottom third maps to logical right (Setting)
-                    else if physicalPoint.y >= 0 && physicalPoint.y < PH / 3 {
-                        print("Direct Click: Switched to Setting")
-                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
+                    if isLeft {
+                        // Under 90 CCW:
+                        // Physical bottom third maps to Browser (logical left, x=0)
+                        if physicalPoint.y >= 0 && physicalPoint.y < PH / 3 {
+                            print("Direct Click (Left Rotated): Switched to Browser")
+                            NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
+                        }
+                        // Physical middle third maps to PDF
+                        else if physicalPoint.y >= PH / 3 && physicalPoint.y < 2 * PH / 3 {
+                            print("Direct Click (Left Rotated): Switched to PDF")
+                            NotificationCenter.default.post(name: NSNotification.Name("SwitchToPDF"), object: nil)
+                        }
+                        // Physical top third maps to Setting (logical right)
+                        else if physicalPoint.y >= 2 * PH / 3 && physicalPoint.y <= PH {
+                            print("Direct Click (Left Rotated): Switched to Setting")
+                            NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
+                        }
+                    } else {
+                        // Original Rotate Right (-90 CCW)
+                        if physicalPoint.y >= 2 * PH / 3 && physicalPoint.y <= PH {
+                            print("Direct Click: Switched to Browser")
+                            NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
+                        }
+                        else if physicalPoint.y >= PH / 3 && physicalPoint.y < 2 * PH / 3 {
+                            print("Direct Click: Switched to PDF")
+                            NotificationCenter.default.post(name: NSNotification.Name("SwitchToPDF"), object: nil)
+                        }
+                        else if physicalPoint.y >= 0 && physicalPoint.y < PH / 3 {
+                            print("Direct Click: Switched to Setting")
+                            NotificationCenter.default.post(name: NSNotification.Name("SwitchToSetting"), object: nil)
+                        }
                     }
                 }
                 return
@@ -85,8 +104,8 @@ class RotatedWindow: NSWindow {
                 
                 // Pathway B: SwiftUI Views
                 // Translate physical coordinate to logical space and forward to the hit view directly.
-                let lx = PH - physicalPoint.y
-                let ly = physicalPoint.x
+                let lx = isLeft ? physicalPoint.y : (PH - physicalPoint.y)
+                let ly = isLeft ? (self.frame.width - physicalPoint.x) : physicalPoint.x
                 
                 if let translatedEvent = NSEvent.mouseEvent(
                     with: event.type,
@@ -130,6 +149,7 @@ class RotatedWindow: NSWindow {
                 return
             }
             
+            let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
             let physicalPoint = event.locationInWindow
             if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
                 let className = hitView.className
@@ -138,17 +158,34 @@ class RotatedWindow: NSWindow {
                         let dy = cgEvent.getDoubleValueField(.scrollWheelEventDeltaAxis1)
                         let dx = cgEvent.getDoubleValueField(.scrollWheelEventDeltaAxis2)
                         
-                        // Physical vertical scrolling -> physical horizontal (axis 2) with inversion.
-                        // Physical horizontal scrolling -> physical vertical (axis 1).
-                        cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis1, value: dx)
-                        cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis2, value: -dy)
-                        
-                        // Also remap the higher resolution fixed point deltas (fields 93 and 94)
-                        if let field93 = CGEventField(rawValue: 93), let field94 = CGEventField(rawValue: 94) {
-                            let fdy = cgEvent.getDoubleValueField(field93)
-                            let fdx = cgEvent.getDoubleValueField(field94)
-                            cgEvent.setDoubleValueField(field93, value: fdx)
-                            cgEvent.setDoubleValueField(field94, value: -fdy)
+                        if isLeft {
+                            // Rotate Left (90 CCW):
+                            // Physical vertical scrolling -> physical horizontal (axis 2) with no sign inversion.
+                            // Physical horizontal scrolling -> physical vertical (axis 1) with inversion.
+                            cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis1, value: -dx)
+                            cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis2, value: dy)
+                            
+                            // Also remap the higher resolution fixed point deltas (fields 93 and 94)
+                            if let field93 = CGEventField(rawValue: 93), let field94 = CGEventField(rawValue: 94) {
+                                let fdy = cgEvent.getDoubleValueField(field93)
+                                let fdx = cgEvent.getDoubleValueField(field94)
+                                cgEvent.setDoubleValueField(field93, value: -fdx)
+                                cgEvent.setDoubleValueField(field94, value: fdy)
+                            }
+                        } else {
+                            // Rotate Right (-90 CCW):
+                            // Physical vertical scrolling -> physical horizontal (axis 2) with inversion.
+                            // Physical horizontal scrolling -> physical vertical (axis 1).
+                            cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis1, value: dx)
+                            cgEvent.setDoubleValueField(.scrollWheelEventDeltaAxis2, value: -dy)
+                            
+                            // Also remap the higher resolution fixed point deltas (fields 93 and 94)
+                            if let field93 = CGEventField(rawValue: 93), let field94 = CGEventField(rawValue: 94) {
+                                let fdy = cgEvent.getDoubleValueField(field93)
+                                let fdx = cgEvent.getDoubleValueField(field94)
+                                cgEvent.setDoubleValueField(field93, value: fdx)
+                                cgEvent.setDoubleValueField(field94, value: -fdy)
+                            }
                         }
                         
                         if let remappedEvent = NSEvent(cgEvent: cgEvent) {
@@ -311,6 +348,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         let container = RotatedContainerView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
         win.contentView = container
         
+        let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
         let hostingView = RotatedHostingView(rootView: ContentView().frame(width: logicalW).frame(maxHeight: .infinity))
         
         hostingView.frame = NSRect(
@@ -319,7 +357,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
             width: logicalW,
             height: logicalH
         )
-        hostingView.frameCenterRotation = -90 // -90 CCW = 90 CW (Physical Top = Logical Left)
+        hostingView.frameCenterRotation = isLeft ? 90 : -90
         
         container.addSubview(hostingView)
         
@@ -341,32 +379,33 @@ class StableWindowController: NSObject, NSWindowDelegate {
             }
             if NSApp.isActive && !win.isKeyWindow { win.makeKey() }
         }
-    }
-    
-    func layoutViews() {
-        guard let win = window,
-              let container = win.contentView as? RotatedContainerView,
-              let hostingView = container.subviews.first else { return }
-        
-        let containerFrame = container.bounds
-        let isFullScreen = win.styleMask.contains(.fullScreen)
-        let titleBarHeight: CGFloat = isFullScreen ? 0 : 28
-        
-        // Only recalculate the width after rotation (which is logicalH, the physical width of the window container)
-        let currentLogicalH = containerFrame.width
-        
-        // Safely update the frame of a rotated NSView in AppKit by resetting rotation first
-        hostingView.frameCenterRotation = 0
-        
-        hostingView.frame = NSRect(
-            x: (containerFrame.width - initialLogicalW) / 2,
-            y: (containerFrame.height - titleBarHeight - currentLogicalH) / 2,
-            width: initialLogicalW,
-            height: currentLogicalH
-        )
-        
-        hostingView.frameCenterRotation = -90
-    }
+     }
+     
+     func layoutViews() {
+         guard let win = window,
+               let container = win.contentView as? RotatedContainerView,
+               let hostingView = container.subviews.first else { return }
+         
+         let containerFrame = container.bounds
+         let isFullScreen = win.styleMask.contains(.fullScreen)
+         let titleBarHeight: CGFloat = isFullScreen ? 0 : 28
+         let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
+         
+         // Only recalculate the width after rotation (which is logicalH, the physical width of the window container)
+         let currentLogicalH = containerFrame.width
+         
+         // Safely update the frame of a rotated NSView in AppKit by resetting rotation first
+         hostingView.frameCenterRotation = 0
+         
+         hostingView.frame = NSRect(
+             x: (containerFrame.width - initialLogicalW) / 2,
+             y: (containerFrame.height - titleBarHeight - currentLogicalH) / 2,
+             width: initialLogicalW,
+             height: currentLogicalH
+         )
+         
+         hostingView.frameCenterRotation = isLeft ? 90 : -90
+     }
     
     func windowDidResize(_ notification: Notification) {
         layoutViews()
