@@ -1,15 +1,24 @@
 import SwiftUI
 import PDFKit
 
+struct ActiveTabState {
+    static var selectedTab: Int = 0
+}
+
 struct ContentView: View {
     @State private var selectedTab = 0
     @State private var lastClick: CGPoint = .zero
+    @State private var pdfCurrentPageIndex: Int = 0
+    @State private var pdfTotalPageCount: Int = 0
     
     // Persistent AppStorage Settings
     @AppStorage("defaultURL") private var defaultURL: String = "https://www.google.com"
     @AppStorage("defaultPDFLocation") private var defaultPDFLocation: String = ""
     @AppStorage("isRotatedMouseEnabled") private var isRotatedMouseEnabled: Bool = false
     @AppStorage("isRotateLeftEnabled") private var isRotateLeftEnabled: Bool = false
+    
+    @State private var selectedPDFFileURL: URL? = nil
+    @State private var isShowingDirectorySelector = false
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -20,8 +29,12 @@ struct ContentView: View {
         return URL(string: "https://www.google.com")!
     }
     
-    // Helper to dynamically resolve local PDF path/URL safely
-    var parsedPDFURL: URL? {
+    // Helper to dynamically resolve the active PDF URL for display
+    var activePDFURL: URL? {
+        if let selected = selectedPDFFileURL {
+            return selected
+        }
+        
         if defaultPDFLocation.isEmpty { return nil }
         let path = defaultPDFLocation.replacingOccurrences(of: "file://", with: "")
         var isDir: ObjCBool = false
@@ -30,25 +43,35 @@ struct ContentView: View {
             return nil
         }
         
-        if isDir.boolValue {
-            // Directory mode: automatically find and load the first PDF file inside
-            do {
-                let contents = try FileManager.default.contentsOfDirectory(atPath: path)
-                if let firstPDF = contents.filter({ $0.lowercased().hasSuffix(".pdf") }).sorted().first {
-                    let filePath = (path as NSString).appendingPathComponent(firstPDF)
-                    print("Auto-resolved directory PDF to first match: \(filePath)")
-                    return URL(fileURLWithPath: filePath)
-                }
-            } catch {
-                print("Error scanning PDF directory: \(error)")
-            }
-            return nil
+        if !isDir.boolValue {
+            return URL(fileURLWithPath: path)
         }
         
-        if defaultPDFLocation.hasPrefix("file://") {
-            return URL(string: defaultPDFLocation)
+        return nil // If it's a directory, return nil by default so we show the Directory Selection Mode!
+    }
+    
+    // Helper to list all PDF files in the default PDF folder/directory
+    var pdfFiles: [URL] {
+        if defaultPDFLocation.isEmpty { return [] }
+        let path = defaultPDFLocation.replacingOccurrences(of: "file://", with: "")
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else { return [] }
+        
+        var dirPath = path
+        if !isDir.boolValue {
+            dirPath = (path as NSString).deletingLastPathComponent
         }
-        return URL(fileURLWithPath: defaultPDFLocation)
+        
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(atPath: dirPath)
+            return contents
+                .filter { $0.lowercased().hasSuffix(".pdf") }
+                .sorted()
+                .map { URL(fileURLWithPath: (dirPath as NSString).appendingPathComponent($0)) }
+        } catch {
+            print("Error listing PDFs in directory: \(error)")
+            return []
+        }
     }
     
     var body: some View {
@@ -60,45 +83,81 @@ struct ContentView: View {
                         WebView(url: parsedURL)
                             .id("tab-0")
                     } else if selectedTab == 1 {
-                        ZStack {
-                            if let pdfURL = parsedPDFURL {
-                                PDFViewWrapper(url: pdfURL)
-                            } else {
-                                // Solid dark background — no .ignoresSafeArea()
-                                Color(red: 0.08, green: 0.08, blue: 0.15)
+                        VStack(spacing: 0) {
+                            if let pdfURL = activePDFURL, !isShowingDirectorySelector {
+                                PDFViewWrapper(
+                                    url: pdfURL,
+                                    currentPageIndex: $pdfCurrentPageIndex,
+                                    totalPageCount: $pdfTotalPageCount
+                                )
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 
-                                VStack(spacing: 24) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.blue.opacity(0.15))
-                                            .frame(width: 160, height: 160)
-                                        Image(systemName: "doc.text.fill")
-                                            .font(.system(size: 64, weight: .light))
-                                            .foregroundColor(.cyan)
+                                // Premium Super-Compact Control Bar
+                                HStack(spacing: 24) {
+                                    // Folder List Button to return to selection mode
+                                    Button(action: {
+                                        isShowingDirectorySelector = true
+                                    }) {
+                                        Image(systemName: "folder.fill")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(6)
+                                            .background(Color.white.opacity(0.15))
+                                            .clipShape(Circle())
                                     }
+                                    .buttonStyle(.plain)
                                     
-                                    Text("No PDF Document Loaded")
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    // Previous Page Button
+                                    Button(action: {
+                                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                                    }) {
+                                        Image(systemName: "chevron.left")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(pdfCurrentPageIndex > 0 ? .white : .white.opacity(0.3))
+                                            .padding(6)
+                                            .background(pdfCurrentPageIndex > 0 ? Color.blue.opacity(0.7) : Color.clear)
+                                            .clipShape(Circle())
+                                    }
+                                    .disabled(pdfCurrentPageIndex <= 0)
+                                    .buttonStyle(.plain)
+                                    
+                                    // Page Counter
+                                    Text("\(pdfTotalPageCount > 0 ? pdfCurrentPageIndex + 1 : 0) / \(pdfTotalPageCount)")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
                                         .foregroundColor(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 4)
+                                        .background(Color.white.opacity(0.1))
+                                        .cornerRadius(8)
                                     
-                                    Text("Open Settings (⌘3) and browse for a PDF file")
-                                        .font(.system(size: 16, weight: .medium))
-                                        .foregroundColor(.white.opacity(0.5))
-                                    
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "gear")
-                                            .font(.system(size: 14))
-                                        Text("Setting → PDF Setting → Browse...")
-                                            .font(.system(size: 14, design: .monospaced))
+                                    // Next Page Button
+                                    Button(action: {
+                                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                                    }) {
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(pdfCurrentPageIndex < pdfTotalPageCount - 1 ? .white : .white.opacity(0.3))
+                                            .padding(6)
+                                            .background(pdfCurrentPageIndex < pdfTotalPageCount - 1 ? Color.blue.opacity(0.7) : Color.clear)
+                                            .clipShape(Circle())
                                     }
-                                    .foregroundColor(.cyan.opacity(0.8))
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.cyan.opacity(0.25), lineWidth: 1)
-                                    )
+                                    .disabled(pdfCurrentPageIndex >= pdfTotalPageCount - 1)
+                                    .buttonStyle(.plain)
                                 }
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.black.opacity(0.85))
+                            } else {
+                                // Directory File Selection Mode or Empty State
+                                DirectorySelectorView(
+                                    folderPath: defaultPDFLocation.isEmpty ? "No Folder Configured" : defaultPDFLocation,
+                                    files: pdfFiles,
+                                    onSelect: { fileURL in
+                                        selectedPDFFileURL = fileURL
+                                        isShowingDirectorySelector = false
+                                    }
+                                )
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
                         }
                         .id("tab-1")
@@ -195,6 +254,10 @@ struct ContentView: View {
             isRotateLeftEnabled.toggle()
             print("Toggled Rotate Left via shortcut: \(isRotateLeftEnabled)")
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFShowFolderSelector"))) { _ in
+            isShowingDirectorySelector = true
+            print("Switched to folder selector via notification")
+        }
         .contentShape(Rectangle())
         .onTapGesture { location in
             self.lastClick = location
@@ -208,11 +271,19 @@ struct ContentView: View {
             if defaultPDFLocation.isEmpty {
                 defaultPDFLocation = NSHomeDirectory()
             }
+            ActiveTabState.selectedTab = selectedTab
         }
-        .onChange(of: isRotateLeftEnabled) { _ in
+        .onChange(of: selectedTab) { oldValue, newValue in
+            ActiveTabState.selectedTab = newValue
+        }
+        .onChange(of: isRotateLeftEnabled) { oldValue, newValue in
             DispatchQueue.main.async {
                 StableWindowController.shared.layoutViews()
             }
+        }
+        .onChange(of: defaultPDFLocation) { oldValue, newValue in
+            selectedPDFFileURL = nil
+            isShowingDirectorySelector = false
         }
     }
 }
@@ -461,5 +532,130 @@ struct SettingsCard<Content: View>: View {
                 .fill(Color(NSColor.controlBackgroundColor))
                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         )
+    }
+}
+
+// MARK: - Premium Directory Selection View Component
+struct DirectorySelectorView: View {
+    let folderPath: String
+    let files: [URL]
+    let onSelect: (URL) -> Void
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header Panel
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 56, height: 56)
+                        Image(systemName: "folder.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.blue)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("PDF Directory Browser")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                        Text(folderPath)
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                }
+                .padding(.bottom, 10)
+                
+                if files.isEmpty {
+                    VStack(spacing: 18) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(width: 100, height: 100)
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.system(size: 40))
+                                .foregroundColor(.gray)
+                        }
+                        
+                        Text("No PDF Files Found")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary.opacity(0.8))
+                        
+                        Text("Add some PDF files into this directory, or select another location via Settings tab (⌘3).")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 320)
+                    }
+                    .padding(.vertical, 60)
+                    .frame(maxWidth: .infinity)
+                } else {
+                    // List of files
+                    VStack(spacing: 12) {
+                        ForEach(files, id: \.self) { fileURL in
+                            Button(action: {
+                                onSelect(fileURL)
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.cyan.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "doc.text.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(.cyan)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(fileURL.lastPathComponent)
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Text(getFileSizeString(for: fileURL))
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.secondary.opacity(0.5))
+                                }
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(30)
+        }
+        .background(Color(NSColor.windowBackgroundColor).opacity(0.4))
+    }
+    
+    private func getFileSizeString(for url: URL) -> String {
+        do {
+            let values = try url.resourceValues(forKeys: [.fileSizeKey])
+            if let size = values.fileSize {
+                let formatter = ByteCountFormatter()
+                formatter.countStyle = .file
+                return formatter.string(fromByteCount: Int64(size))
+            }
+        } catch {}
+        return "Unknown size"
     }
 }

@@ -8,8 +8,32 @@ class ScrollablePDFView: PDFView {
         if newWindow != nil && !registered {
             NotificationCenter.default.addObserver(self, selector: #selector(handleScrollDown), name: NSNotification.Name("ScrollPDFDown"), object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(handleScrollUp), name: NSNotification.Name("ScrollPDFUp"), object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(handlePreviousPage), name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(handleNextPage), name: NSNotification.Name("PDFGoToNextPage"), object: nil)
             registered = true
         }
+    }
+    
+    override func layout() {
+        super.layout()
+        // Manually calculate and enforce scale factor to perfectly match view width (no margins)
+        if let page = self.currentPage {
+            let pageBounds = page.bounds(for: self.displayBox)
+            let viewBounds = self.bounds
+            if pageBounds.width > 0 && viewBounds.width > 0 {
+                self.autoScales = false
+                let scaleFactor = (viewBounds.width / pageBounds.width) * 1.18
+                self.scaleFactor = scaleFactor
+            }
+        }
+    }
+    
+    @objc func handlePreviousPage() {
+        self.goToPreviousPage(nil)
+    }
+    
+    @objc func handleNextPage() {
+        self.goToNextPage(nil)
     }
     
     @objc func handleScrollDown() {
@@ -37,20 +61,43 @@ class ScrollablePDFView: PDFView {
 
 struct PDFViewWrapper: NSViewRepresentable {
     let url: URL?
+    @Binding var currentPageIndex: Int
+    @Binding var totalPageCount: Int
 
     func makeNSView(context: Context) -> PDFView {
         let pdfView = ScrollablePDFView()
         pdfView.backgroundColor = .white
         pdfView.interpolationQuality = .high
+        pdfView.displayMode = .singlePage // Show only 1 page at a time
+        pdfView.displaysPageBreaks = false // Remove all default shadows/margins/borders
+        pdfView.autoScales = false // We handle width scaling manually!
         pdfView.appearance = NSAppearance(named: .aqua) // Explicitly force Light Mode (Aqua)
+        
+        context.coordinator.setupNotificationObserver(for: pdfView)
         return pdfView
     }
 
     func updateNSView(_ nsView: PDFView, context: Context) {
+        context.coordinator.parent = self
+        
         if let url = url {
             if nsView.document?.documentURL != url {
                 nsView.document = PDFDocument(url: url)
-                nsView.autoScales = true
+                nsView.displayMode = .singlePage
+                nsView.displaysPageBreaks = false
+                nsView.autoScales = false
+                
+                // Let the view obtain its layout and non-zero bounds first, then fit width
+                DispatchQueue.main.async {
+                    if let page = nsView.currentPage {
+                        let pageBounds = page.bounds(for: nsView.displayBox)
+                        let viewBounds = nsView.bounds
+                        if pageBounds.width > 0 && viewBounds.width > 0 {
+                            nsView.scaleFactor = (viewBounds.width / pageBounds.width) * 1.18
+                        }
+                    }
+                    context.coordinator.updatePageInfo(from: nsView)
+                }
             }
         }
         
@@ -64,6 +111,65 @@ struct PDFViewWrapper: NSViewRepresentable {
         
         // Recursively configure all subview layers for crisp Retina scaling under rotation
         configureHighResolution(for: nsView, scale: scale)
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject {
+        var parent: PDFViewWrapper
+        
+        init(_ parent: PDFViewWrapper) {
+            self.parent = parent
+        }
+        
+        func setupNotificationObserver(for pdfView: PDFView) {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(pageChangedNotification(_:)),
+                name: .PDFViewPageChanged,
+                object: pdfView
+            )
+        }
+        
+        @objc private func pageChangedNotification(_ notification: Notification) {
+            guard let pdfView = notification.object as? PDFView else { return }
+            
+            // Adjust zoom factor to perfectly fit width on page change
+            if let page = pdfView.currentPage {
+                let pageBounds = page.bounds(for: pdfView.displayBox)
+                let viewBounds = pdfView.bounds
+                if pageBounds.width > 0 && viewBounds.width > 0 {
+                    pdfView.autoScales = false
+                    pdfView.scaleFactor = (viewBounds.width / pageBounds.width) * 1.18
+                }
+            }
+            
+            updatePageInfo(from: pdfView)
+        }
+        
+        func updatePageInfo(from pdfView: PDFView) {
+            guard let document = pdfView.document else {
+                DispatchQueue.main.async {
+                    self.parent.currentPageIndex = 0
+                    self.parent.totalPageCount = 0
+                }
+                return
+            }
+            let total = document.pageCount
+            let current = pdfView.currentPage
+            let index = current != nil ? document.index(for: current!) : 0
+            
+            DispatchQueue.main.async {
+                self.parent.currentPageIndex = index
+                self.parent.totalPageCount = total
+            }
+        }
+        
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
     }
     
     private func configureHighResolution(for view: NSView, scale: CGFloat) {

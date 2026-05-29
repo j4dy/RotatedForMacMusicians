@@ -82,6 +82,47 @@ class RotatedWindow: NSWindow {
                 return
             }
             
+            // 1.5 Direct Intercept for Page Navigation Bar in PDF Tab
+            let isPageBarArea = isLeft ? (physicalPoint.x >= self.frame.width - 160 && physicalPoint.x < self.frame.width - 100) : (physicalPoint.x > 100 && physicalPoint.x <= 160)
+            if isPageBarArea && ActiveTabState.selectedTab == 1 {
+                if event.type == .leftMouseDown {
+                    if isLeft {
+                        // Under 90 CCW:
+                        // Logical left (Folder, Prev) maps physically to bottom
+                        // Logical right (Next) maps physically to top
+                        if physicalPoint.y >= 0 && physicalPoint.y < PH / 4 {
+                            print("Direct Click: Folder Button")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFShowFolderSelector"), object: nil)
+                        }
+                        else if physicalPoint.y >= PH / 4 && physicalPoint.y < PH / 2 {
+                            print("Direct Click: Prev Page")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                        }
+                        else if physicalPoint.y >= PH / 2 && physicalPoint.y <= PH {
+                            print("Direct Click: Next Page")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                        }
+                    } else {
+                        // Original Rotate Right (-90 CCW):
+                        // Logical left (Folder, Prev) maps physically to top
+                        // Logical right (Next) maps physically to bottom
+                        if physicalPoint.y >= 3 * PH / 4 && physicalPoint.y <= PH {
+                            print("Direct Click: Folder Button")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFShowFolderSelector"), object: nil)
+                        }
+                        else if physicalPoint.y >= PH / 2 && physicalPoint.y < 3 * PH / 4 {
+                            print("Direct Click: Prev Page")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                        }
+                        else if physicalPoint.y >= 0 && physicalPoint.y < PH / 2 {
+                            print("Direct Click: Next Page")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                        }
+                    }
+                }
+                return
+            }
+            
             // 2. Find the exact Cocoa view under the physical mouse cursor for Web/PDF/SwiftUI routing
             if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
                 let className = hitView.className
@@ -119,7 +160,7 @@ class RotatedWindow: NSWindow {
                     pressure: event.pressure
                 ) {
                     // Only apply coordinate conversion bypass for SwiftUI private gesture views (not native fields/text views)
-                    let shouldBypass = className.contains("SwiftUI") && !className.contains("Text") && !className.contains("Field")
+                    let shouldBypass = (className.contains("SwiftUI") || className.contains("Hosting")) && !className.contains("Text") && !className.contains("Field")
                     
                     if shouldBypass {
                         EventForwardingState.isForwardingEvent = true
@@ -204,6 +245,18 @@ class RotatedWindow: NSWindow {
 
 
         if event.type == .keyDown {
+            // Left/Right Arrow Key Page navigation when in PDF tab
+            if ActiveTabState.selectedTab == 1 {
+                if event.keyCode == 123 { // Left Arrow
+                    NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                    return
+                }
+                if event.keyCode == 124 { // Right Arrow
+                    NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                    return
+                }
+            }
+
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if mods.contains(.command) && event.charactersIgnoringModifiers == "1" {
                 NotificationCenter.default.post(name: NSNotification.Name("SwitchToBrowser"), object: nil)
@@ -349,7 +402,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         win.contentView = container
         
         let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
-        let hostingView = RotatedHostingView(rootView: ContentView().frame(width: logicalW).frame(maxHeight: .infinity))
+        let hostingView = RotatedHostingView(rootView: ContentView())
         
         hostingView.frame = NSRect(
             x: (screenFrame.width - logicalW) / 2,
@@ -363,6 +416,10 @@ class StableWindowController: NSObject, NSWindowDelegate {
         
         win.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        
+        DispatchQueue.main.async {
+            win.toggleFullScreen(nil)
+        }
         
         // Auto-close any standard SwiftUI-generated windows to keep exactly one single RotatedWindow active
         DispatchQueue.main.async {
@@ -391,16 +448,17 @@ class StableWindowController: NSObject, NSWindowDelegate {
          let titleBarHeight: CGFloat = isFullScreen ? 0 : 28
          let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
          
-         // Only recalculate the width after rotation (which is logicalH, the physical width of the window container)
+         // Compute logical dimensions dynamically based on current container size
+         let currentLogicalW = containerFrame.height - titleBarHeight
          let currentLogicalH = containerFrame.width
          
          // Safely update the frame of a rotated NSView in AppKit by resetting rotation first
          hostingView.frameCenterRotation = 0
          
          hostingView.frame = NSRect(
-             x: (containerFrame.width - initialLogicalW) / 2,
+             x: (containerFrame.width - currentLogicalW) / 2,
              y: (containerFrame.height - titleBarHeight - currentLogicalH) / 2,
-             width: initialLogicalW,
+             width: currentLogicalW,
              height: currentLogicalH
          )
          
