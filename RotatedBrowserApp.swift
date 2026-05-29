@@ -188,6 +188,30 @@ class RotatedWindow: NSWindow {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleTab"), object: nil)
                 return
             }
+            
+            // Programmatic Page Scroll Shortcuts
+            // Down Arrow (125) with Option, or Page Down (121)
+            if (mods.contains(.option) && event.keyCode == 125) || event.keyCode == 121 {
+                NotificationCenter.default.post(name: NSNotification.Name("ScrollBrowserDown"), object: nil)
+                NotificationCenter.default.post(name: NSNotification.Name("ScrollPDFDown"), object: nil)
+                return
+            }
+            // Up Arrow (126) with Option, or Page Up (116)
+            if (mods.contains(.option) && event.keyCode == 126) || event.keyCode == 116 {
+                NotificationCenter.default.post(name: NSNotification.Name("ScrollBrowserUp"), object: nil)
+                NotificationCenter.default.post(name: NSNotification.Name("ScrollPDFUp"), object: nil)
+                return
+            }
+            
+            // Toggle Hardware Settings via Option Keys
+            if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "m" {
+                NotificationCenter.default.post(name: NSNotification.Name("ToggleRotatedMouse"), object: nil)
+                return
+            }
+            if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "l" {
+                NotificationCenter.default.post(name: NSNotification.Name("ToggleRotateLeft"), object: nil)
+                return
+            }
         }
         
         // Keyboard passthrough to ensure WKWebView gets the events directly when rotated

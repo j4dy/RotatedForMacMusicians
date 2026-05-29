@@ -1,11 +1,45 @@
 import SwiftUI
 import PDFKit
 
+class ScrollablePDFView: PDFView {
+    private var registered = false
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow != nil && !registered {
+            NotificationCenter.default.addObserver(self, selector: #selector(handleScrollDown), name: NSNotification.Name("ScrollPDFDown"), object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(handleScrollUp), name: NSNotification.Name("ScrollPDFUp"), object: nil)
+            registered = true
+        }
+    }
+    
+    @objc func handleScrollDown() {
+        if let scrollView = self.subviews.first(where: { $0 is NSScrollView }) as? NSScrollView {
+            let contentView = scrollView.contentView
+            var newPoint = contentView.bounds.origin
+            newPoint.y += 120 // Scroll down logically (AppKit coordinate moves up/down)
+            contentView.scroll(to: newPoint)
+        } else {
+            self.scrollLineDown(nil)
+        }
+    }
+    
+    @objc func handleScrollUp() {
+        if let scrollView = self.subviews.first(where: { $0 is NSScrollView }) as? NSScrollView {
+            let contentView = scrollView.contentView
+            var newPoint = contentView.bounds.origin
+            newPoint.y -= 120 // Scroll up logically
+            contentView.scroll(to: newPoint)
+        } else {
+            self.scrollLineUp(nil)
+        }
+    }
+}
+
 struct PDFViewWrapper: NSViewRepresentable {
     let url: URL?
 
     func makeNSView(context: Context) -> PDFView {
-        let pdfView = PDFView()
+        let pdfView = ScrollablePDFView()
         pdfView.backgroundColor = .white
         pdfView.interpolationQuality = .high
         pdfView.appearance = NSAppearance(named: .aqua) // Explicitly force Light Mode (Aqua)

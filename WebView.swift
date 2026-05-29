@@ -4,6 +4,24 @@ import WebKit
 class FocusableWebView: WKWebView {
     override var acceptsFirstResponder: Bool { true }
     
+    private var registered = false
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow != nil && !registered {
+            NotificationCenter.default.addObserver(self, selector: #selector(handleScrollDown), name: NSNotification.Name("ScrollBrowserDown"), object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(handleScrollUp), name: NSNotification.Name("ScrollBrowserUp"), object: nil)
+            registered = true
+        }
+    }
+    
+    @objc func handleScrollDown() {
+        self.evaluateJavaScript("window.scrollBy({ top: 300, behavior: 'smooth' })", completionHandler: nil)
+    }
+    
+    @objc func handleScrollUp() {
+        self.evaluateJavaScript("window.scrollBy({ top: -300, behavior: 'smooth' })", completionHandler: nil)
+    }
+    
     override func becomeFirstResponder() -> Bool {
         print("WebView becoming first responder")
         return super.becomeFirstResponder()

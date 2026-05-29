@@ -9,6 +9,7 @@ struct ContentView: View {
     @AppStorage("defaultURL") private var defaultURL: String = "https://www.google.com"
     @AppStorage("defaultPDFLocation") private var defaultPDFLocation: String = ""
     @AppStorage("isRotatedMouseEnabled") private var isRotatedMouseEnabled: Bool = false
+    @AppStorage("isRotateLeftEnabled") private var isRotateLeftEnabled: Bool = false
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -105,7 +106,8 @@ struct ContentView: View {
                         SettingsView(
                             defaultURL: $defaultURL,
                             defaultPDFLocation: $defaultPDFLocation,
-                            isRotatedMouseEnabled: $isRotatedMouseEnabled
+                            isRotatedMouseEnabled: $isRotatedMouseEnabled,
+                            isRotateLeftEnabled: $isRotateLeftEnabled
                         )
                         .id("tab-2")
                     }
@@ -185,6 +187,14 @@ struct ContentView: View {
             selectedTab = (selectedTab + 1) % 3
             print("Toggled tab via shortcut to: \(selectedTab)")
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleRotatedMouse"))) { _ in
+            isRotatedMouseEnabled.toggle()
+            print("Toggled Rotated Mouse via shortcut: \(isRotatedMouseEnabled)")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleRotateLeft"))) { _ in
+            isRotateLeftEnabled.toggle()
+            print("Toggled Rotate Left via shortcut: \(isRotateLeftEnabled)")
+        }
         .contentShape(Rectangle())
         .onTapGesture { location in
             self.lastClick = location
@@ -207,6 +217,7 @@ struct SettingsView: View {
     @Binding var defaultURL: String
     @Binding var defaultPDFLocation: String
     @Binding var isRotatedMouseEnabled: Bool
+    @Binding var isRotateLeftEnabled: Bool
     
     // Custom premium focus ring states
     @FocusState private var isURLFocused: Bool
@@ -287,17 +298,79 @@ struct SettingsView: View {
                 
                 // 3rd Section: Hardware Setting
                 SettingsCard(title: "Hardware Setting", icon: "cpu") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle(isOn: $isRotatedMouseEnabled) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Rotated Mouse")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Remap standard physical mouse coordinates to logically rotated space (Placeholder mockup).")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Toggle(isOn: $isRotatedMouseEnabled) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Rotated Mouse")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    Text("Remap standard physical mouse coordinates to logically rotated space.")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
                             }
+                            .toggleStyle(.switch)
+                            
+                            Spacer()
+                            
+                            Text("⌥ M")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                )
+                                .foregroundColor(.blue)
                         }
-                        .toggleStyle(.switch)
+                        
+                        Divider()
+                        
+                        HStack {
+                            Toggle(isOn: $isRotateLeftEnabled) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Rotate Left")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    Text("Rotate the primary display window orientation left.")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            
+                            Spacer()
+                            
+                            Text("⌥ L")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                )
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+                
+                // 4th Section: Keyboard Shortcuts Guide
+                SettingsCard(title: "Keyboard Shortcuts", icon: "keyboard") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ShortcutRow(keys: "⌘ 1", description: "Switch to Browser View")
+                        ShortcutRow(keys: "⌘ 2", description: "Switch to PDF Document View")
+                        ShortcutRow(keys: "⌘ 3", description: "Switch to Settings Window")
+                        ShortcutRow(keys: "Ctrl ⇥", description: "Cycle through active Tabs")
+                        ShortcutRow(keys: "⌥ ↓  /  PgDn", description: "Scroll view DOWN programmatically")
+                        ShortcutRow(keys: "⌥ ↑  /  PgUp", description: "Scroll view UP programmatically")
+                        ShortcutRow(keys: "⌘ F", description: "Toggle Window Fullscreen Mode")
                     }
                 }
             }
@@ -319,6 +392,34 @@ struct SettingsView: View {
             if let fileURL = openPanel.url {
                 defaultPDFLocation = fileURL.path
             }
+        }
+    }
+}
+
+// MARK: - Premium Shortcut Row Component
+struct ShortcutRow: View {
+    let keys: String
+    let description: String
+    
+    var body: some View {
+        HStack {
+            Text(description)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.primary)
+            Spacer()
+            Text(keys)
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
+                .foregroundColor(.blue)
         }
     }
 }
