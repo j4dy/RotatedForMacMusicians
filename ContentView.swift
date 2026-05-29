@@ -712,6 +712,7 @@ struct DirectorySelectorView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .focusable(false)
                         }
                     }
                 }

@@ -3,6 +3,7 @@ import AppKit
 
 class RotatedWindow: NSWindow {
     static var pressedKeys = Set<UInt16>()
+    static var pendingNavigationWorkItem: DispatchWorkItem?
     
     // Recursive hit-test function that respects visual transforms
     func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
@@ -268,35 +269,49 @@ class RotatedWindow: NSWindow {
             
             if (hasLeft && hasRight) || isEnter {
                 if ActiveTabState.selectedTab == 1 {
+                    // Cancel any scheduled single arrow navigation immediately if simultaneous press detected
+                    RotatedWindow.pendingNavigationWorkItem?.cancel()
+                    RotatedWindow.pendingNavigationWorkItem = nil
+                    
                     print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
                     return
                 }
             }
             
-            // Left/Right Arrow key behavior
+            // Left/Right Arrow key behavior with a 50ms debounce window to prevent off-by-one errors from simultaneous presses
             if event.keyCode == 123 { // Left Arrow
-                if ActiveTabState.selectedTab == 1 {
-                    if ActiveTabState.isSelectorModeActive {
-                        NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionUp"), object: nil)
+                RotatedWindow.pendingNavigationWorkItem?.cancel()
+                let workItem = DispatchWorkItem {
+                    if ActiveTabState.selectedTab == 1 {
+                        if ActiveTabState.isSelectorModeActive {
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionUp"), object: nil)
+                        } else {
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                        }
                     } else {
-                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                        NotificationCenter.default.post(name: NSNotification.Name("TabNavigateLeft"), object: nil)
                     }
-                } else {
-                    NotificationCenter.default.post(name: NSNotification.Name("TabNavigateLeft"), object: nil)
                 }
+                RotatedWindow.pendingNavigationWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
                 return
             }
             if event.keyCode == 124 { // Right Arrow
-                if ActiveTabState.selectedTab == 1 {
-                    if ActiveTabState.isSelectorModeActive {
-                        NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionDown"), object: nil)
+                RotatedWindow.pendingNavigationWorkItem?.cancel()
+                let workItem = DispatchWorkItem {
+                    if ActiveTabState.selectedTab == 1 {
+                        if ActiveTabState.isSelectorModeActive {
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionDown"), object: nil)
+                        } else {
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                        }
                     } else {
-                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                        NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)
                     }
-                } else {
-                    NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)
                 }
+                RotatedWindow.pendingNavigationWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
                 return
             }
         } else if event.type == .keyUp {

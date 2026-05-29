@@ -26,8 +26,8 @@ class ScrollablePDFView: PDFView {
                 let widthScale = viewBounds.width / pageBounds.width
                 let heightScale = viewBounds.height / pageBounds.height
                 
-                // Use the smaller scale factor to ensure the entire page fits in view bounds cleanly (Page Fit)
-                let scaleFactor = min(widthScale, heightScale) * 1.18
+                // Use the smaller scale factor to ensure the entire page fits in view bounds cleanly (Page Fit, zoom 1.0)
+                let scaleFactor = min(widthScale, heightScale) * 1.0
                 self.scaleFactor = scaleFactor
             }
         }
@@ -100,7 +100,7 @@ struct PDFViewWrapper: NSViewRepresentable {
                         if pageBounds.width > 0 && pageBounds.height > 0 && viewBounds.width > 0 && viewBounds.height > 0 {
                             let widthScale = viewBounds.width / pageBounds.width
                             let heightScale = viewBounds.height / pageBounds.height
-                            nsView.scaleFactor = min(widthScale, heightScale) * 1.18
+                            nsView.scaleFactor = min(widthScale, heightScale) * 1.0
                         }
                     }
                     context.coordinator.updatePageInfo(from: nsView)
@@ -151,7 +151,7 @@ struct PDFViewWrapper: NSViewRepresentable {
                     pdfView.autoScales = false
                     let widthScale = viewBounds.width / pageBounds.width
                     let heightScale = viewBounds.height / pageBounds.height
-                    pdfView.scaleFactor = min(widthScale, heightScale) * 1.18
+                    pdfView.scaleFactor = min(widthScale, heightScale) * 1.0
                 }
             }
             
