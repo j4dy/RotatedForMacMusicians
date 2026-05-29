@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotated For Mac Musicians — Immersive Rotated Digital Music Stand</title>
+    <meta name="description" content="A premium macOS application built in SwiftUI/AppKit designed specifically for musicians using physically rotated portrait-oriented monitors. Features custom rotated mouse/scroll coordinate remapping, borderless edge-to-edge PDF sheet music reading, and focus-locked web browsing.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Inline Styling (Vanilla CSS) -->
+    <style>
+        :root {
+            --bg-color: #0b0d19;
+            --card-bg: rgba(20, 24, 46, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --accent: #06b6d4;
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
+            --gradient: linear-gradient(135deg, var(--primary), var(--accent));
+            --glow: 0 0 30px rgba(59, 130, 246, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+        }
+
+        /* Unique Descriptive IDs for Semantic HTML Elements */
+        #main-header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 40px;
+            z-index: 100;
+            background: rgba(11, 13, 25, 0.7);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--gradient);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            box-shadow: var(--glow);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.5px;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #nav-menu {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+        }
+
+        .github-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .github-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Hero Section */
+        #hero-section {
+            padding: 160px 40px 100px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 60px;
+            min-height: 90vh;
+        }
+
+        @media (max-width: 968px) {
+            #hero-section {
+                grid-template-columns: 1fr;
+                padding-top: 120px;
+                text-align: center;
+                gap: 40px;
+            }
+            .logo-container {
+                margin: 0 auto;
+            }
+            #nav-menu {
+                display: none;
+            }
+        }
+
+        .badge {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 20px;
+        }
+
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -1.5px;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #fff, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            max-width: 500px;
+        }
+
+        @media (max-width: 968px) {
+            .hero-subtitle {
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        @media (max-width: 968px) {
+            .cta-group {
+                justify-content: center;
+            }
+        }
+
+        .primary-btn {
+            background: var(--gradient);
+            color: #fff;
+            padding: 14px 28px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            box-shadow: var(--glow);
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Mockup and Interactive Rotation Demo */
+        .mockup-wrapper {
+            position: relative;
+            perspective: 1000px;
+        }
+
+        .app-mockup {
+            background: #1e223b;
+            border: 4px solid #334155;
+            border-radius: 16px;
+            width: 320px;
+            height: 520px;
+            margin: 0 auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .app-mockup.rotated {
+            transform: rotate(-90deg);
+            box-shadow: 25px 0 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .app-titlebar {
+            height: 28px;
+            background: #111528;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #f59e0b; }
+        .dot-green { background: #10b981; }
+
+        .app-content {
+            flex: 1;
+            background: #fff;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .app-pdf-view {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fafafa;
+            position: relative;
+            padding: 10px;
+        }
+
+        .pdf-page-mock {
+            width: 90%;
+            height: 85%;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pdf-line {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+        }
+        .pdf-line.short { width: 60%; }
+        .pdf-notes {
+            flex: 1;
+            background: repeating-linear-gradient(
+                0deg,
+                #fff,
+                #fff 10px,
+                #94a3b8 11px,
+                #94a3b8 12px
+            );
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .app-page-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+            font-size: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mock-btn {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.6rem;
+            cursor: pointer;
+        }
+
+        .app-tabbar {
+            height: 48px;
+            background: #f1f5f9;
+            border-top: 1px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 0 10px;
+        }
+
+        .mock-tab {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+        .mock-tab.active {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .rotate-trigger-container {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .rotate-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+            display: block;
+        }
+
+        /* Features Section */
+        #features-section {
+            padding: 100px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 30px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 10px 30px -15px rgba(59, 130, 246, 0.2);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            margin-bottom: 24px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 400;
+        }
+
+        /* Build and Setup Section */
+        #setup-section {
+            padding: 100px 40px;
+            background: rgba(20, 24, 46, 0.3);
+            border-top: 1px solid var(--card-border);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .setup-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .setup-step {
+            margin-bottom: 40px;
+        }
+
+        .setup-step h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-number {
+            width: 28px;
+            height: 28px;
+            background: var(--gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .code-block {
+            background: #060810;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: #38bdf8;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block::after {
+            content: "SHELL";
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        /* Footer */
+        #main-footer {
+            padding: 60px 40px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .footer-logo {
+            margin-bottom: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Semantic Header -->
+    <header id="main-header">
+        <div class="logo-container">
+            <div class="logo-icon">♩</div>
+            <span class="logo-text">Rotated For Mac Musicians</span>
+        </div>
+        <nav id="nav-menu">
+            <a href="#features-section" class="nav-link">Features</a>
+            <a href="#setup-section" class="nav-link">Quickstart</a>
+        </nav>
+        <a href="https://github.com/j4dy/RotatedForMacMusicians.git" class="github-btn" target="_blank" id="github-header-btn">
+            <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+            </svg>
+            GitHub
+        </a>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="hero-section">
+        <div class="hero-left">
+            <div class="badge">💻 Built with SwiftUI & AppKit</div>
+            <h1 class="hero-title">The Digital Music Stand for Mac</h1>
+            <p class="hero-subtitle">Optimized specifically for musicians using physically rotated portrait-oriented screens. Perfect coordinate mapping, edge-to-edge sheet music rendering, and focus-locked sheet scanning.</p>
+            <div class="cta-group">
+                <a href="#setup-section" class="primary-btn" id="hero-cta-btn">Quickstart Guide</a>
+            </div>
+        </div>
+        
+        <!-- Interactive Rotation Demo Box -->
+        <div class="hero-right mockup-wrapper">
+            <div class="app-mockup" id="demo-mockup">
+                <div class="app-titlebar">
+                    <span class="dot dot-red"></span>
+                    <span class="dot dot-yellow"></span>
+                    <span class="dot dot-green"></span>
+                </div>
+                <div class="app-content">
+                    <!-- PDF Display Mock -->
+                    <div class="app-pdf-view">
+                        <div class="pdf-page-mock">
+                            <div class="pdf-line"></div>
+                            <div class="pdf-line short"></div>
+                            <div class="pdf-notes"></div>
+                            <div class="pdf-line"></div>
+                            <div class="pdf-line short"></div>
+                        </div>
+                        <div class="app-page-bar">
+                            <span class="mock-btn">&lt;</span>
+                            <span>Page 1 / 18</span>
+                            <span class="mock-btn">&gt;</span>
+                        </div>
+                    </div>
+                    <!-- Navigation Tabs Mock -->
+                    <div class="app-tabbar">
+                        <span class="mock-tab">Browser</span>
+                        <span class="mock-tab active">PDF Stand</span>
+                        <span class="mock-tab">Settings</span>
+                    </div>
+                </div>
+            </div>
+            <div class="rotate-trigger-container">
+                <button class="primary-btn" id="rotate-toggle-btn" onclick="toggleMockupRotation()">Simulate Monitor Rotation</button>
+                <span class="rotate-label">Click to see how coordinate and display mapping handles rotation</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features-section">
+        <div class="section-header">
+            <h2 class="section-title">Built Specially for Musicians</h2>
+            <p class="section-subtitle">A collection of deeply thought-out, pixel-perfect capabilities designed to solve hardware rotation constraints.</p>
+        </div>
+        <div class="features-grid">
+            
+            <div class="feature-card">
+                <div class="feature-icon">⟳</div>
+                <h3>Hardware Mouse Translation</h3>
+                <p>Natively intercepts and rotates physical mouse clicks and scroll coordinates. Clicks land exactly where they should under -90° or +90° displays.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📄</div>
+                <h3>Margin-Free Page Zoom</h3>
+                <p>Employs dynamic 1.18x over-zoomed scaling to push empty white margins off-screen, pulling musical staves perfectly edge-to-edge.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📂</div>
+                <h3>Directory File Selector</h3>
+                <p>Loads directory folders into a beautiful file selection list detailing PDF names and byte sizes for quick browse-to-open sheet loading.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⌨</div>
+                <h3>Swift Keyboard Flips</h3>
+                <p>Turn pages using Left and Right Arrow keys or programmatic PgUp/PgDn keycodes, designed for hands-free foot pedal bindings.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>Focus-Locked Browser</h3>
+                <p>Features a custom WKWebView browser that prevents focus dropping, allowing smooth scrolling with Option arrow key shortcuts.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Default Fullscreen Stand</h3>
+                <p>Launches instantly in borderless fullscreen mode by default, immediately transforming your screen into a professional music stand.</p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Quickstart Guide Section -->
+    <section id="setup-section">
+        <div class="setup-container">
+            <div class="section-header">
+                <h2 class="section-title">Get Started in 60 Seconds</h2>
+                <p class="section-subtitle">Follow these quick steps to compile and launch the application natively on your Mac.</p>
+            </div>
+            
+            <div class="setup-step">
+                <h3><span class="step-number">1</span> Clone the Repository</h3>
+                <pre class="code-block">git clone https://github.com/j4dy/RotatedForMacMusicians.git
+cd RotatedForMacMusicians</pre>
+            </div>
+
+            <div class="setup-step">
+                <h3><span class="step-number">2</span> Compile Natively</h3>
+                <pre class="code-block">swiftc RotatedBrowserApp.swift ContentView.swift WebView.swift PDFViewWrapper.swift -o net.j4dy.RotatedBrowserApp</pre>
+            </div>
+
+            <div class="setup-step">
+                <h3><span class="step-number">3</span> Run the Application</h3>
+                <pre class="code-block">./net.j4dy.RotatedBrowserApp</pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="main-footer">
+        <div class="footer-logo">
+            <div class="logo-icon">♩</div>
+            <span class="logo-text">Rotated For Mac Musicians</span>
+        </div>
+        <p>&copy; 2026 Rotated For Mac Musicians. Open Source under the MIT License.</p>
+    </footer>
+
+    <!-- Interactive JS Mockup Script -->
+    <script>
+        function toggleMockupRotation() {
+            const mockup = document.getElementById('demo-mockup');
+            mockup.classList.toggle('rotated');
+            const btn = document.getElementById('rotate-toggle-btn');
+            if (mockup.classList.contains('rotated')) {
+                btn.textContent = "Reset Rotation";
+            } else {
+                btn.textContent = "Simulate Monitor Rotation";
+            }
+        }
+    </script>
+</body>
+</html>
