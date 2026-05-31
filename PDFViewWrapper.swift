@@ -191,6 +191,14 @@ struct PDFViewWrapper: NSViewRepresentable {
                 }
             }
             
+            // Force dynamic layout refresh and instant redrawing of the view and documentView to clear tile caches
+            pdfView.needsLayout = true
+            pdfView.needsDisplay = true
+            if let docView = pdfView.documentView {
+                docView.needsLayout = true
+                docView.needsDisplay = true
+            }
+            
             updatePageInfo(from: pdfView)
         }
         
