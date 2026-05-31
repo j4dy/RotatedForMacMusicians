@@ -404,6 +404,10 @@ class RotatedWindow: NSWindow {
                 self.toggleFullScreen(nil)
                 return
             }
+            if mods.contains(.command) && event.charactersIgnoringModifiers == "w" {
+                self.close()
+                return
+            }
             if mods.contains(.control) && event.keyCode == 48 {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleTab"), object: nil)
                 return
