@@ -16,19 +16,44 @@ import PDFKit
 class ScrollablePDFView: PDFView {
     private var registered = false
     
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        Swift.print("ScrollablePDFView init(frame:) called! self: \(Unmanaged.passUnretained(self).toOpaque())")
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        Swift.print("ScrollablePDFView init(coder:) called! self: \(Unmanaged.passUnretained(self).toOpaque())")
+    }
+    
+    deinit {
+        Swift.print("ScrollablePDFView deinit called! self: \(Unmanaged.passUnretained(self).toOpaque())")
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         super.viewWillMove(toWindow: newWindow)
+        Swift.print("ScrollablePDFView viewWillMove(toWindow:) called on self: \(Unmanaged.passUnretained(self).toOpaque()) with window: \(String(describing: newWindow)), registered: \(registered)")
         if newWindow != nil && !registered {
             NotificationCenter.default.addObserver(self, selector: #selector(handleScrollDown), name: NSNotification.Name("ScrollPDFDown"), object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(handleScrollUp), name: NSNotification.Name("ScrollPDFUp"), object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(handlePreviousPage), name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(handleNextPage), name: NSNotification.Name("PDFGoToNextPage"), object: nil)
             registered = true
+            Swift.print("ScrollablePDFView registered notifications successfully for self: \(Unmanaged.passUnretained(self).toOpaque())")
+        }
+    }
+    
+    private func disableLayersRecursively(for view: NSView) {
+        view.wantsLayer = false
+        for subview in view.subviews {
+            disableLayersRecursively(for: subview)
         }
     }
     
     override func layout() {
         super.layout()
+        disableLayersRecursively(for: self)
         // Manually calculate and enforce scale factor to fit the entire page within the view bounds (page fit view)
         if let page = self.currentPage {
             let pageBounds = page.bounds(for: self.displayBox)
@@ -47,10 +72,12 @@ class ScrollablePDFView: PDFView {
     }
     
     @objc func handlePreviousPage() {
+        Swift.print("PDFView handlePreviousPage received! Document has \(self.document?.pageCount ?? 0) pages.")
         self.goToPreviousPage(nil)
     }
     
     @objc func handleNextPage() {
+        Swift.print("PDFView handleNextPage received! Document has \(self.document?.pageCount ?? 0) pages.")
         self.goToNextPage(nil)
     }
     
