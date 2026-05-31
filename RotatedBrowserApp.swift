@@ -533,10 +533,12 @@ class StableWindowController: NSObject, NSWindowDelegate {
         win.collectionBehavior = [.fullScreenPrimary, .managed]
         
         let container = RotatedContainerView(frame: NSRect(x: 0, y: 0, width: screenFrame.width, height: screenFrame.height))
+        container.wantsLayer = true
         win.contentView = container
         
         let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
         let hostingView = RotatedHostingView(rootView: ContentView())
+        hostingView.wantsLayer = true
         
         hostingView.frame = NSRect(
             x: (screenFrame.width - logicalW) / 2,

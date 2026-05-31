@@ -44,16 +44,8 @@ class ScrollablePDFView: PDFView {
         }
     }
     
-    private func disableLayersRecursively(for view: NSView) {
-        view.wantsLayer = false
-        for subview in view.subviews {
-            disableLayersRecursively(for: subview)
-        }
-    }
-    
     override func layout() {
         super.layout()
-        disableLayersRecursively(for: self)
         // Manually calculate and enforce scale factor to fit the entire page within the view bounds (page fit view)
         if let page = self.currentPage {
             let pageBounds = page.bounds(for: self.displayBox)
@@ -111,7 +103,7 @@ struct PDFViewWrapper: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PDFView {
         let pdfView = ScrollablePDFView()
-        pdfView.wantsLayer = false // Explicitly disable layer backing on the PDFView itself
+        pdfView.wantsLayer = true // Explicitly enable layer backing on the PDFView itself
         pdfView.backgroundColor = .white
         pdfView.interpolationQuality = .high
         pdfView.displayMode = .singlePage // Show only 1 page at a time
@@ -153,7 +145,7 @@ struct PDFViewWrapper: NSViewRepresentable {
         nsView.interpolationQuality = .high
         nsView.backgroundColor = .white
         nsView.appearance = NSAppearance(named: .aqua) // Explicitly force Light Mode (Aqua)
-        nsView.wantsLayer = false // Explicitly ensure layer backing remains disabled
+        nsView.wantsLayer = true // Explicitly ensure layer backing is enabled
     }
     
     func makeCoordinator() -> Coordinator {
