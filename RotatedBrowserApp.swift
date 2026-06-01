@@ -624,6 +624,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
 struct RotatedBrowserApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
+        AppAnalytics.shared.trackEvent(name: "app_launch", parameters: ["event_category": "Lifecycle"])
         DispatchQueue.main.async {
             StableWindowController.shared.setup()
         }
