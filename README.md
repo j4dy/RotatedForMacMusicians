@@ -59,3 +59,20 @@ Since the repository is structured as a Swift Package Manager executable, you ca
 1. Open Xcode and select **File > Open**.
 2. Select the directory containing `Package.swift`.
 3. Choose the `net.j4dy.RotatedBrowserApp` scheme and click **Run** (⌘R).
+
+---
+
+## macOS Security Gatekeeper Troubleshooting
+
+Since this pre-alpha build is not code-signed using a paid Apple Developer Account, Gatekeeper may block launch or warn that the application file is "damaged" upon installation.
+
+### Override via Context Menu
+1. In Finder, locate `RotatedBrowserApp` inside `/Applications` or your target folder.
+2. **Right-click** (or Control-click) the application icon and choose **Open** from the context menu.
+3. In the dialog, click **Open** again to confirm.
+
+### Override via Terminal
+Alternatively, you can strip the system quarantine flag off the application bundle by running this command:
+```bash
+xattr -d com.apple.quarantine /Applications/RotatedBrowserApp.app
+```
