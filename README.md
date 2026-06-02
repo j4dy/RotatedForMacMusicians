@@ -4,6 +4,11 @@ A premium, native macOS application designed to display a web browser and a PDF 
 
 This app is tailored for musicians, live performers, and kiosk installations using physical displays mounted in portrait orientation while macOS remains in its default landscape orientation.
 
+## Documentation & Downloads
+
+Explore complete setup instructions, details about coordinate mapping, and get the latest release installer at:
+👉 **[Documentation & Landing Page](https://j4dy.github.io/RotatedForMacMusicians/)**
+
 ---
 
 ## Key Features
