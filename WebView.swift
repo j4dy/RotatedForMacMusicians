@@ -42,14 +42,56 @@ class FocusableWebView: WKWebView {
     }
 }
 
+class WebViewStore {
+    static let sharedWebView = FocusableWebView()
+    static var coordinator: WebView.Coordinator?
+}
+
 struct WebView: NSViewRepresentable {
     let url: URL
+    @Binding var isLoading: Bool
+
+    class Coordinator: NSObject {
+        var parent: WebView
+        var observation: NSKeyValueObservation?
+
+        init(_ parent: WebView) {
+            self.parent = parent
+        }
+
+        func observeLoading(webView: WKWebView) {
+            // Remove previous observation if any
+            observation?.invalidate()
+            observation = webView.observe(\.isLoading, options: [.new]) { [weak self] webView, change in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.parent.isLoading = webView.isLoading
+                }
+            }
+        }
+        
+        deinit {
+            observation?.invalidate()
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        let coordinator = Coordinator(self)
+        WebViewStore.coordinator = coordinator
+        return coordinator
+    }
 
     func makeNSView(context: Context) -> WKWebView {
-        return FocusableWebView()
+        let webView = WebViewStore.sharedWebView
+        context.coordinator.observeLoading(webView: webView)
+        return webView
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
+        context.coordinator.parent = self
+        // Re-observe since parent binding might have updated
+        context.coordinator.observeLoading(webView: nsView)
+        
         if nsView.url == nil {
             let request = URLRequest(url: url)
             nsView.load(request)

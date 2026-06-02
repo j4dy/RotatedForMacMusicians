@@ -344,6 +344,13 @@ class RotatedWindow: NSWindow {
                     print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
                     return
+                } else if ActiveTabState.selectedTab == 0 {
+                    RotatedWindow.pendingNavigationWorkItem?.cancel()
+                    RotatedWindow.pendingNavigationWorkItem = nil
+                    
+                    print("Enter triggered on Browser: enabling arrow navigation")
+                    NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
+                    return
                 }
             }
             
@@ -353,6 +360,13 @@ class RotatedWindow: NSWindow {
             // Left/Right Arrow key behavior
             if event.keyCode == 123 { // Left Arrow
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
+                
+                // If arrow navigation is active in browser tab, let the WebView process it natively
+                if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                    super.sendEvent(event)
+                    return
+                }
+                
                 let workItem = DispatchWorkItem {
                     if isCommand {
                         NotificationCenter.default.post(name: NSNotification.Name("TabNavigateLeft"), object: nil)
@@ -372,6 +386,13 @@ class RotatedWindow: NSWindow {
             }
             if event.keyCode == 124 { // Right Arrow
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
+                
+                // If arrow navigation is active in browser tab, let the WebView process it natively
+                if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                    super.sendEvent(event)
+                    return
+                }
+                
                 let workItem = DispatchWorkItem {
                     if isCommand {
                         NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)

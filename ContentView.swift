@@ -24,6 +24,8 @@ struct ContentView: View {
     @State private var directorySelectedIndex = 0
     @State private var directoryPage = 0
     let pdfPageSize = 12
+    @State private var isBrowserLoading = false
+    @State private var isBrowserArrowNavigationActive = false
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -150,9 +152,60 @@ struct ContentView: View {
                 // Main Content Area
                 ZStack {
                     if selectedTab == 0 {
-                        WebView(url: parsedURL)
-                            .id("tab-0")
+                        // Tab 0: Browser View
+                        ZStack {
+                            WebView(url: parsedURL, isLoading: $isBrowserLoading)
+                                .id("tab-0")
+                            
+                            if isBrowserLoading {
+                                ZStack {
+                                    Color.black.opacity(0.3)
+                                    VStack(spacing: 16) {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .scaleEffect(1.5)
+                                        Text("Loading Page...")
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(24)
+                                    .background(Color.black.opacity(0.75))
+                                    .cornerRadius(16)
+                                }
+                            }
+                            
+                            if isBrowserArrowNavigationActive {
+                                VStack {
+                                    Spacer()
+                                    HStack {
+                                        Spacer()
+                                        Button(action: {
+                                            isBrowserArrowNavigationActive = false
+                                            ActiveTabState.isArrowNavigationActive = false
+                                            print("Exit Browser Mode clicked: arrow navigation disabled")
+                                        }) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "arrow.left.circle.fill")
+                                                    .font(.system(size: 16, weight: .bold))
+                                                Text("Exit Browser Mode")
+                                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
+                                            .background(Color.red.opacity(0.9))
+                                            .foregroundColor(.white)
+                                            .cornerRadius(20)
+                                            .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(.trailing, 24)
+                                        .padding(.bottom, 24)
+                                    }
+                                }
+                            }
+                        }
                     } else if selectedTab == 1 {
+                        // Tab 1: PDF Viewer & Selection Mode
                         VStack(spacing: 0) {
                             if let pdfURL = activePDFURL, !isShowingDirectorySelector {
                                 PDFViewWrapper(
@@ -260,6 +313,7 @@ struct ContentView: View {
                         }
                         .id("tab-1")
                     } else {
+                        // Tab 2: Settings View
                         SettingsView(
                             defaultURL: $defaultURL,
                             defaultPDFLocation: $defaultPDFLocation,
@@ -413,6 +467,13 @@ struct ContentView: View {
             isShowingDirectorySelector = true
             print("Switched to folder selector via notification")
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserTriggerEnterAction"))) { _ in
+            if selectedTab == 0 {
+                isBrowserArrowNavigationActive = true
+                ActiveTabState.isArrowNavigationActive = true
+                print("Switched browser arrow navigation active: true")
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture { location in
             self.lastClick = location
@@ -434,6 +495,7 @@ struct ContentView: View {
         .onChange(of: selectedTab) { oldValue, newValue in
             ActiveTabState.selectedTab = newValue
             ActiveTabState.isArrowNavigationActive = false
+            isBrowserArrowNavigationActive = false
             if newValue == 1 {
                 isShowingDirectorySelector = true
                 ActiveTabState.isSelectorModeActive = true
@@ -637,14 +699,13 @@ struct SettingsView: View {
         }
     }
     
-    // Natively choose a PDF file path from macOS file browser
+    // Natively choose a PDF folder/directory path from macOS file browser
     private func selectPDFFile() {
         let openPanel = NSOpenPanel()
-        openPanel.title = "Select Default PDF Document"
-        openPanel.allowedContentTypes = [.pdf]
+        openPanel.title = "Select Default PDF Directory"
         openPanel.allowsMultipleSelection = false
-        openPanel.canChooseDirectories = false
-        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = true
+        openPanel.canChooseFiles = false
         
         if openPanel.runModal() == .OK {
             if let fileURL = openPanel.url {
