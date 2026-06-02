@@ -431,12 +431,20 @@ struct SettingsView: View {
                             Button(action: {
                                 selectPDFFile()
                             }) {
-                                Text("Browse...")
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 5)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(6)
+                                HStack(spacing: 6) {
+                                    Text("Browse...")
+                                    Text("⌥ O")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.white.opacity(0.2))
+                                        .cornerRadius(4)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 5)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(6)
                             }
                             .buttonStyle(.plain)
                         }
