@@ -22,6 +22,8 @@ struct ContentView: View {
     @State private var selectedPDFFileURL: URL? = nil
     @State private var isShowingDirectorySelector = false
     @State private var directorySelectedIndex = 0
+    @State private var directoryPage = 0
+    let pdfPageSize = 12
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -74,6 +76,71 @@ struct ContentView: View {
         } catch {
             print("Error listing PDFs in directory: \(error)")
             return []
+        }
+    }
+
+    // Helper to compute total pages of the directory browser files
+    var totalPages: Int {
+        let count = pdfFiles.count
+        if count == 0 { return 1 }
+        return Int(ceil(Double(count) / Double(pdfPageSize)))
+    }
+
+    // Get the paged subset of PDF files
+    var pagedPDFFiles: [URL] {
+        let allFiles = pdfFiles
+        if allFiles.isEmpty { return [] }
+        let startIndex = min(directoryPage * pdfPageSize, allFiles.count)
+        let endIndex = min(startIndex + pdfPageSize, allFiles.count)
+        if startIndex >= endIndex { return [] }
+        return Array(allFiles[startIndex..<endIndex])
+    }
+
+    // Returns if Previous Page button is visible on current screen
+    var hasPrevPage: Bool {
+        return directoryPage > 0
+    }
+
+    // Returns if Next Page button is visible on current screen
+    var hasNextPage: Bool {
+        return directoryPage < totalPages - 1
+    }
+
+    // Returns total count of interactive rows on current selector screen
+    var totalSelectableItemsCount: Int {
+        var count = 1 + pagedPDFFiles.count // 1 Back button + files
+        if hasPrevPage { count += 1 }
+        if hasNextPage { count += 1 }
+        return count
+    }
+
+    var prevPageIndex: Int? {
+        if hasPrevPage {
+            return 1 + pagedPDFFiles.count
+        }
+        return nil
+    }
+
+    var nextPageIndex: Int? {
+        if hasNextPage {
+            return 1 + pagedPDFFiles.count + (hasPrevPage ? 1 : 0)
+        }
+        return nil
+    }
+
+    private func goToPrevPage() {
+        if directoryPage > 0 {
+            directoryPage -= 1
+            directorySelectedIndex = 0
+            print("Went to previous page: \(directoryPage)")
+        }
+    }
+
+    private func goToNextPage() {
+        if directoryPage < totalPages - 1 {
+            directoryPage += 1
+            directorySelectedIndex = 0
+            print("Went to next page: \(directoryPage)")
         }
     }
     
@@ -167,8 +234,18 @@ struct ContentView: View {
                                 // Directory File Selection Mode or Empty State
                                 DirectorySelectorView(
                                     folderPath: defaultPDFLocation.isEmpty ? "No Folder Configured" : defaultPDFLocation,
-                                    files: pdfFiles,
+                                    files: pagedPDFFiles,
                                     selectedIndex: $directorySelectedIndex,
+                                    hasPrevPage: hasPrevPage,
+                                    hasNextPage: hasNextPage,
+                                    totalPages: totalPages,
+                                    currentPage: directoryPage,
+                                    onPrevPage: {
+                                        goToPrevPage()
+                                    },
+                                    onNextPage: {
+                                        goToNextPage()
+                                    },
                                     onSelect: { fileURL in
                                         selectedPDFFileURL = fileURL
                                         isShowingDirectorySelector = false
@@ -295,11 +372,15 @@ struct ContentView: View {
                         // "Return to Tab Navigation" option selected
                         ActiveTabState.isArrowNavigationActive = false
                         print("Enter Triggered: Selected Back button, arrows reset to tab cycling")
+                    } else if let prevIndex = prevPageIndex, directorySelectedIndex == prevIndex {
+                        goToPrevPage()
+                    } else if let nextIndex = nextPageIndex, directorySelectedIndex == nextIndex {
+                        goToNextPage()
                     } else {
                         // Open the selected PDF file
                         let fileIndex = directorySelectedIndex - 1
-                        if fileIndex >= 0 && fileIndex < pdfFiles.count {
-                            let selectedFile = pdfFiles[fileIndex]
+                        if fileIndex >= 0 && fileIndex < pagedPDFFiles.count {
+                            let selectedFile = pagedPDFFiles[fileIndex]
                             selectedPDFFileURL = selectedFile
                             isShowingDirectorySelector = false
                             ActiveTabState.isArrowNavigationActive = true
@@ -316,14 +397,14 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFNavigateSelectionUp"))) { _ in
             if selectedTab == 1 && isShowingDirectorySelector && !pdfFiles.isEmpty {
-                let totalItemsCount = pdfFiles.count + 1
+                let totalItemsCount = totalSelectableItemsCount
                 directorySelectedIndex = (directorySelectedIndex - 1 + totalItemsCount) % totalItemsCount
                 print("Navigation Up: new index \(directorySelectedIndex)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFNavigateSelectionDown"))) { _ in
             if selectedTab == 1 && isShowingDirectorySelector && !pdfFiles.isEmpty {
-                let totalItemsCount = pdfFiles.count + 1
+                let totalItemsCount = totalSelectableItemsCount
                 directorySelectedIndex = (directorySelectedIndex + 1) % totalItemsCount
                 print("Navigation Down: new index \(directorySelectedIndex)")
             }
@@ -641,8 +722,28 @@ struct DirectorySelectorView: View {
     let folderPath: String
     let files: [URL]
     @Binding var selectedIndex: Int
+    let hasPrevPage: Bool
+    let hasNextPage: Bool
+    let totalPages: Int
+    let currentPage: Int
+    let onPrevPage: () -> Void
+    let onNextPage: () -> Void
     let onSelect: (URL) -> Void
     let onBack: () -> Void
+
+    var prevPageIndex: Int? {
+        if hasPrevPage {
+            return 1 + files.count
+        }
+        return nil
+    }
+
+    var nextPageIndex: Int? {
+        if hasNextPage {
+            return 1 + files.count + (hasPrevPage ? 1 : 0)
+        }
+        return nil
+    }
     
     var body: some View {
         ScrollView {
@@ -666,6 +767,11 @@ struct DirectorySelectorView: View {
                             .font(.system(size: 13, design: .monospaced))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
+                        if totalPages > 1 {
+                            Text("Page \(currentPage + 1) of \(totalPages)")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.blue)
+                        }
                     }
                     Spacer()
                 }
@@ -781,6 +887,88 @@ struct DirectorySelectorView: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
                                         .stroke(selectedIndex == virtualIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == virtualIndex ? 2 : 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .focusable(false)
+                        }
+
+                        // Previous Page Row
+                        if hasPrevPage, let prevIndex = prevPageIndex {
+                            Button(action: {
+                                selectedIndex = prevIndex
+                                onPrevPage()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == prevIndex ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.up.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == prevIndex ? .blue : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Previous Page")
+                                            .font(.system(size: 15, weight: selectedIndex == prevIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == prevIndex ? .blue : .primary)
+                                        Text("Go to page \(currentPage) of \(totalPages)")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == prevIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == prevIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == prevIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == prevIndex ? 2 : 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .focusable(false)
+                        }
+
+                        // Next Page Row
+                        if hasNextPage, let nextIndex = nextPageIndex {
+                            Button(action: {
+                                selectedIndex = nextIndex
+                                onNextPage()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == nextIndex ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == nextIndex ? .blue : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Next Page")
+                                            .font(.system(size: 15, weight: selectedIndex == nextIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == nextIndex ? .blue : .primary)
+                                        Text("Go to page \(currentPage + 2) of \(totalPages)")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == nextIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == nextIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == nextIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == nextIndex ? 2 : 1)
                                 )
                             }
                             .buttonStyle(.plain)
