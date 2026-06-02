@@ -307,10 +307,10 @@ struct ContentView: View {
                         }
                     }
                 } else {
-                    // Enter in PDF viewer mode: Switch back to directory selection and release arrow keys
+                    // Enter in PDF viewer mode: Switch back to directory selection but KEEP arrow keys locked to list navigation
                     isShowingDirectorySelector = true
-                    ActiveTabState.isArrowNavigationActive = false
-                    print("Enter Triggered: Returned to PDF Selector, arrows reset to tab cycling")
+                    ActiveTabState.isArrowNavigationActive = true
+                    print("Enter Triggered: Returned to PDF Selector, arrows remain locked inside PDF mode")
                 }
             }
         }
