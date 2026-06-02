@@ -519,9 +519,9 @@ struct SettingsView: View {
                 // 4th Section: Keyboard Shortcuts Guide
                 SettingsCard(title: "Keyboard Shortcuts", icon: "keyboard") {
                     VStack(alignment: .leading, spacing: 12) {
-                        ShortcutRow(keys: "⌘ 1", description: "Switch to Browser View")
-                        ShortcutRow(keys: "⌘ 2", description: "Switch to PDF Document View")
-                        ShortcutRow(keys: "⌘ 3", description: "Switch to Settings Window")
+                        ShortcutRow(keys: "⌘ 1 / 2 / 3", description: "Switch direct Tabs")
+                        ShortcutRow(keys: "⌘ ←  /  ⌘ →", description: "Navigate Tabs globally")
+                        ShortcutRow(keys: "←  /  →", description: "Navigate PDF Selector / Page Turns")
                         ShortcutRow(keys: "Ctrl ⇥", description: "Cycle through active Tabs")
                         ShortcutRow(keys: "⌥ ↓  /  PgDn", description: "Scroll view DOWN programmatically")
                         ShortcutRow(keys: "⌥ ↑  /  PgUp", description: "Scroll view UP programmatically")

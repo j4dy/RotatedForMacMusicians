@@ -347,11 +347,16 @@ class RotatedWindow: NSWindow {
                 }
             }
             
-            // Left/Right Arrow key behavior with a 50ms debounce window to prevent off-by-one errors from simultaneous presses
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let isCommand = mods.contains(.command)
+
+            // Left/Right Arrow key behavior
             if event.keyCode == 123 { // Left Arrow
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 let workItem = DispatchWorkItem {
-                    if ActiveTabState.selectedTab == 1 {
+                    if isCommand {
+                        NotificationCenter.default.post(name: NSNotification.Name("TabNavigateLeft"), object: nil)
+                    } else if ActiveTabState.selectedTab == 1 {
                         if ActiveTabState.isSelectorModeActive {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionUp"), object: nil)
                         } else {
@@ -368,7 +373,9 @@ class RotatedWindow: NSWindow {
             if event.keyCode == 124 { // Right Arrow
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 let workItem = DispatchWorkItem {
-                    if ActiveTabState.selectedTab == 1 {
+                    if isCommand {
+                        NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)
+                    } else if ActiveTabState.selectedTab == 1 {
                         if ActiveTabState.isSelectorModeActive {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionDown"), object: nil)
                         } else {
