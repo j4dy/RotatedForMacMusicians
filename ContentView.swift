@@ -172,6 +172,10 @@ struct ContentView: View {
                                     onSelect: { fileURL in
                                         selectedPDFFileURL = fileURL
                                         isShowingDirectorySelector = false
+                                    },
+                                    onBack: {
+                                        ActiveTabState.isArrowNavigationActive = false
+                                        print("Back selected: Returned arrow keys focus to tab cycling")
                                     }
                                 )
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -286,19 +290,21 @@ struct ContentView: View {
                     ActiveTabState.isArrowNavigationActive = true
                     print("Enter Triggered: Arrow navigation enabled for PDF Selection List")
                 } else if isShowingDirectorySelector || activePDFURL == nil {
-                    // Second Enter (inside selection mode): Select and open the highlighted PDF
-                    if directorySelectedIndex >= 0 && directorySelectedIndex < pdfFiles.count {
-                        let selectedFile = pdfFiles[directorySelectedIndex]
-                        selectedPDFFileURL = selectedFile
-                        isShowingDirectorySelector = false
-                        // Keep arrow navigation active so arrows flip pages
-                        ActiveTabState.isArrowNavigationActive = true
-                        print("Enter Triggered: Loaded PDF \(selectedFile.lastPathComponent), arrows enabled for page turns")
-                    } else if let firstFile = pdfFiles.first {
-                        selectedPDFFileURL = firstFile
-                        isShowingDirectorySelector = false
-                        ActiveTabState.isArrowNavigationActive = true
-                        print("Enter Triggered (Fallback): Loaded first PDF \(firstFile.lastPathComponent)")
+                    // Second Enter (inside selection mode)
+                    if directorySelectedIndex == 0 {
+                        // "Return to Tab Navigation" option selected
+                        ActiveTabState.isArrowNavigationActive = false
+                        print("Enter Triggered: Selected Back button, arrows reset to tab cycling")
+                    } else {
+                        // Open the selected PDF file
+                        let fileIndex = directorySelectedIndex - 1
+                        if fileIndex >= 0 && fileIndex < pdfFiles.count {
+                            let selectedFile = pdfFiles[fileIndex]
+                            selectedPDFFileURL = selectedFile
+                            isShowingDirectorySelector = false
+                            ActiveTabState.isArrowNavigationActive = true
+                            print("Enter Triggered: Loaded PDF \(selectedFile.lastPathComponent), arrows enabled for page turns")
+                        }
                     }
                 } else {
                     // Enter in PDF viewer mode: Switch back to directory selection and release arrow keys
@@ -310,13 +316,15 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFNavigateSelectionUp"))) { _ in
             if selectedTab == 1 && isShowingDirectorySelector && !pdfFiles.isEmpty {
-                directorySelectedIndex = (directorySelectedIndex - 1 + pdfFiles.count) % pdfFiles.count
+                let totalItemsCount = pdfFiles.count + 1
+                directorySelectedIndex = (directorySelectedIndex - 1 + totalItemsCount) % totalItemsCount
                 print("Navigation Up: new index \(directorySelectedIndex)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFNavigateSelectionDown"))) { _ in
             if selectedTab == 1 && isShowingDirectorySelector && !pdfFiles.isEmpty {
-                directorySelectedIndex = (directorySelectedIndex + 1) % pdfFiles.count
+                let totalItemsCount = pdfFiles.count + 1
+                directorySelectedIndex = (directorySelectedIndex + 1) % totalItemsCount
                 print("Navigation Down: new index \(directorySelectedIndex)")
             }
         }
@@ -634,6 +642,7 @@ struct DirectorySelectorView: View {
     let files: [URL]
     @Binding var selectedIndex: Int
     let onSelect: (URL) -> Void
+    let onBack: () -> Void
     
     var body: some View {
         ScrollView {
@@ -688,26 +697,67 @@ struct DirectorySelectorView: View {
                 } else {
                     // List of files
                     VStack(spacing: 12) {
+                        // Virtual Item at Index 0: Exit Arrow selection focus and return to Tab Navigation cycling
+                        Button(action: {
+                            selectedIndex = 0
+                            onBack()
+                        }) {
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(selectedIndex == 0 ? Color.red.opacity(0.2) : Color.gray.opacity(0.15))
+                                        .frame(width: 48, height: 48)
+                                    Image(systemName: "arrow.left.circle")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(selectedIndex == 0 ? .red : .gray)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Return to Tab Navigation")
+                                        .font(.system(size: 15, weight: selectedIndex == 0 ? .bold : .semibold))
+                                        .foregroundColor(selectedIndex == 0 ? .red : .primary)
+                                    Text("Release arrow keys to switch tabs")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(selectedIndex == 0 ? Color.red.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                    .shadow(color: selectedIndex == 0 ? Color.red.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(selectedIndex == 0 ? Color.red : Color.gray.opacity(0.15), lineWidth: selectedIndex == 0 ? 2 : 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .focusable(false)
+                        
+                        // Render physical PDF files offset by 1
                         ForEach(0..<files.count, id: \.self) { index in
                             let fileURL = files[index]
+                            let virtualIndex = index + 1
                             Button(action: {
-                                selectedIndex = index
+                                selectedIndex = virtualIndex
                                 onSelect(fileURL)
                             }) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(selectedIndex == index ? Color.blue.opacity(0.2) : Color.cyan.opacity(0.15))
+                                            .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.2) : Color.cyan.opacity(0.15))
                                             .frame(width: 48, height: 48)
-                                        Image(systemName: selectedIndex == index ? "doc.text.fill" : "doc.text")
+                                        Image(systemName: selectedIndex == virtualIndex ? "doc.text.fill" : "doc.text")
                                             .font(.system(size: 22))
-                                            .foregroundColor(selectedIndex == index ? .blue : .cyan)
+                                            .foregroundColor(selectedIndex == virtualIndex ? .blue : .cyan)
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(fileURL.lastPathComponent)
-                                            .font(.system(size: 15, weight: selectedIndex == index ? .bold : .semibold))
-                                            .foregroundColor(selectedIndex == index ? .blue : .primary)
+                                            .font(.system(size: 15, weight: selectedIndex == virtualIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == virtualIndex ? .blue : .primary)
                                             .lineLimit(1)
                                             .multilineTextAlignment(.leading)
                                         
@@ -720,17 +770,17 @@ struct DirectorySelectorView: View {
                                     
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(selectedIndex == index ? .blue : .secondary.opacity(0.5))
+                                        .foregroundColor(selectedIndex == virtualIndex ? .blue : .secondary.opacity(0.5))
                                 }
                                 .padding(14)
                                 .background(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .fill(selectedIndex == index ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                        .shadow(color: selectedIndex == index ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                        .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == virtualIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(selectedIndex == index ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == index ? 2 : 1)
+                                        .stroke(selectedIndex == virtualIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == virtualIndex ? 2 : 1)
                                 )
                             }
                             .buttonStyle(.plain)
