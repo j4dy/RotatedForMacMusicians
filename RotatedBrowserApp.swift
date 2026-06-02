@@ -427,13 +427,16 @@ class RotatedWindow: NSWindow {
                 return
             }
             
-            // Toggle Hardware Settings via Option Keys
             if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "m" {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleRotatedMouse"), object: nil)
                 return
             }
             if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "l" {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleRotateLeft"), object: nil)
+                return
+            }
+            if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "o" {
+                NotificationCenter.default.post(name: NSNotification.Name("TriggerPDFBrowse"), object: nil)
                 return
             }
         }

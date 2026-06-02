@@ -518,12 +518,16 @@ struct SettingsView: View {
                         ShortcutRow(keys: "⌥ ↓  /  PgDn", description: "Scroll view DOWN programmatically")
                         ShortcutRow(keys: "⌥ ↑  /  PgUp", description: "Scroll view UP programmatically")
                         ShortcutRow(keys: "⌘ F", description: "Toggle Window Fullscreen Mode")
+                        ShortcutRow(keys: "⌥ O", description: "Open macOS PDF File Browser")
                     }
                 }
             }
             .padding(30)
         }
         .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TriggerPDFBrowse"))) { _ in
+            self.selectPDFFile()
+        }
     }
     
     // Natively choose a PDF file path from macOS file browser

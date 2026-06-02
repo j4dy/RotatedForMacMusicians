@@ -18,7 +18,8 @@ let package = Package(
                 "RotatedBrowserApp.swift",
                 "ContentView.swift",
                 "WebView.swift",
-                "PDFViewWrapper.swift"
+                "PDFViewWrapper.swift",
+                "Analytics.swift"
             ]
         )
     ]

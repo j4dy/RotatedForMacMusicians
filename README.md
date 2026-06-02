@@ -24,6 +24,7 @@ Explore complete setup instructions, details about coordinate mapping, and get t
   * `Cmd + 1`: Switch to Web Browser Tab
   * `Cmd + 2`: Switch to PDF Viewer Tab
   * `Ctrl + Tab`: Toggle between active tabs
+  * `Opt + O`: Open macOS native PDF File Browser
 
 ---
 
