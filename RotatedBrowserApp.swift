@@ -34,6 +34,13 @@ class RotatedWindow: NSWindow {
         return false
     }
 
+    override func noResponder(for eventSelector: Selector) {
+        if eventSelector == #selector(keyDown(with:)) {
+            return
+        }
+        super.noResponder(for: eventSelector)
+    }
+
     override func sendEvent(_ event: NSEvent) {
         // Programmatic Warp Event Intercept: Ignore events synthesized by our own cursor warping to break the runaway feedback loop
         let currentPoint = NSEvent.mouseLocation

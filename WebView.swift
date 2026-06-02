@@ -10,8 +10,15 @@ class FocusableWebView: WKWebView {
         if newWindow != nil && !registered {
             NotificationCenter.default.addObserver(self, selector: #selector(handleScrollDown), name: NSNotification.Name("ScrollBrowserDown"), object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(handleScrollUp), name: NSNotification.Name("ScrollBrowserUp"), object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(handleFocusRequest), name: NSNotification.Name("FocusBrowserWebView"), object: nil)
             registered = true
         }
+    }
+    
+    @objc func handleFocusRequest() {
+        print("FocusableWebView: forcing first responder window focus")
+        let success = self.window?.makeFirstResponder(self) ?? false
+        print("Focus request success: \(success)")
     }
     
     @objc func handleScrollDown() {

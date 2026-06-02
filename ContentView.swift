@@ -472,6 +472,7 @@ struct ContentView: View {
                 isBrowserArrowNavigationActive = true
                 ActiveTabState.isArrowNavigationActive = true
                 print("Switched browser arrow navigation active: true")
+                NotificationCenter.default.post(name: NSNotification.Name("FocusBrowserWebView"), object: nil)
             }
         }
         .contentShape(Rectangle())
