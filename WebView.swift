@@ -52,6 +52,46 @@ class FocusableWebView: WKWebView {
 class WebViewStore {
     static let sharedWebView = FocusableWebView()
     static var coordinator: WebView.Coordinator?
+    
+    static func updateAdBlockerState() {
+        let isEnabled = UserDefaults.standard.bool(forKey: "isAdBlockerEnabled")
+        let webView = sharedWebView
+        let userContentController = webView.configuration.userContentController
+        
+        userContentController.removeAllContentRuleLists()
+        
+        if isEnabled {
+            let blockRules = """
+            [
+                {
+                    "trigger": {
+                        "url-filter": ".*(googleads|doubleclick|adservice|adsystem|adnxs|pagead|googlesyndication|analytics|quantserve|scorecardresearch|taboola|outbrain|adroll|carbonads|adzerk|amazon-adsystem|openx|pubmatic|casalemedia|rubiconproject|adcolony|chartboost|flurry|mopub|unityads|ironsrc|admob|applovin|adserver|adtech|advertising|smartadserver).*\\\\..*"
+                    },
+                    "action": {
+                        "type": "block"
+                    }
+                }
+            ]
+            """
+            WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "AdBlockerRules",
+                encodedContentRuleList: blockRules
+            ) { (contentRuleList, error) in
+                if let error = error {
+                    print("Error compiling ad blocker rules: \(error.localizedDescription)")
+                    return
+                }
+                if let contentRuleList = contentRuleList {
+                    DispatchQueue.main.async {
+                        userContentController.add(contentRuleList)
+                        print("Ad Blocker applied successfully.")
+                    }
+                }
+            }
+        } else {
+            print("Ad Blocker rules removed.")
+        }
+    }
 }
 
 struct WebView: NSViewRepresentable {

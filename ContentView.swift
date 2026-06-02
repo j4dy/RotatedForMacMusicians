@@ -18,6 +18,7 @@ struct ContentView: View {
     @AppStorage("defaultPDFLocation") private var defaultPDFLocation: String = ""
     @AppStorage("isRotatedMouseEnabled") private var isRotatedMouseEnabled: Bool = false
     @AppStorage("isRotateLeftEnabled") private var isRotateLeftEnabled: Bool = false
+    @AppStorage("isAdBlockerEnabled") private var isAdBlockerEnabled: Bool = false
     
     @State private var selectedPDFFileURL: URL? = nil
     @State private var isShowingDirectorySelector = false
@@ -332,6 +333,7 @@ struct ContentView: View {
                             defaultPDFLocation: $defaultPDFLocation,
                             isRotatedMouseEnabled: $isRotatedMouseEnabled,
                             isRotateLeftEnabled: $isRotateLeftEnabled,
+                            isAdBlockerEnabled: $isAdBlockerEnabled,
                             onRefreshBrowser: {
                                 refreshBrowserWithNewURL()
                             }
@@ -511,6 +513,12 @@ struct ContentView: View {
             isShowingDirectorySelector = true
             ActiveTabState.selectedTab = selectedTab
             ActiveTabState.isSelectorModeActive = true
+            
+            // Compile and set up browser content filtering rules on launch
+            WebViewStore.updateAdBlockerState()
+        }
+        .onChange(of: isAdBlockerEnabled) { oldValue, newValue in
+            WebViewStore.updateAdBlockerState()
         }
         .onChange(of: selectedTab) { oldValue, newValue in
             ActiveTabState.selectedTab = newValue
@@ -546,6 +554,7 @@ struct SettingsView: View {
     @Binding var defaultPDFLocation: String
     @Binding var isRotatedMouseEnabled: Bool
     @Binding var isRotateLeftEnabled: Bool
+    @Binding var isAdBlockerEnabled: Bool
     var onRefreshBrowser: () -> Void
     
     // Custom premium focus ring states
@@ -607,6 +616,20 @@ struct SettingsView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                        
+                        Divider()
+                            .padding(.vertical, 5)
+                        
+                        Toggle(isOn: $isAdBlockerEnabled) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Block Ads")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Compile and apply content blocking rules to filter ad networks natively.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
                     }
                 }
                 
