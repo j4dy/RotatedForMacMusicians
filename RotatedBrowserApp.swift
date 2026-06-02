@@ -356,7 +356,7 @@ class RotatedWindow: NSWindow {
                 let workItem = DispatchWorkItem {
                     if isCommand {
                         NotificationCenter.default.post(name: NSNotification.Name("TabNavigateLeft"), object: nil)
-                    } else if ActiveTabState.selectedTab == 1 {
+                    } else if ActiveTabState.selectedTab == 1 && ActiveTabState.isArrowNavigationActive {
                         if ActiveTabState.isSelectorModeActive {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionUp"), object: nil)
                         } else {
@@ -375,7 +375,7 @@ class RotatedWindow: NSWindow {
                 let workItem = DispatchWorkItem {
                     if isCommand {
                         NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)
-                    } else if ActiveTabState.selectedTab == 1 {
+                    } else if ActiveTabState.selectedTab == 1 && ActiveTabState.isArrowNavigationActive {
                         if ActiveTabState.isSelectorModeActive {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionDown"), object: nil)
                         } else {

@@ -4,6 +4,7 @@ import PDFKit
 struct ActiveTabState {
     static var selectedTab: Int = 0
     static var isSelectorModeActive: Bool = true
+    static var isArrowNavigationActive: Bool = false
 }
 
 struct ContentView: View {
@@ -280,22 +281,30 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFTriggerEnterAction"))) { _ in
             if selectedTab == 1 {
-                if isShowingDirectorySelector || activePDFURL == nil {
-                    // Enter key triggers selection of the highlighted PDF file
+                if !ActiveTabState.isArrowNavigationActive {
+                    // First Enter: Lock arrow keys to navigate the selection list
+                    ActiveTabState.isArrowNavigationActive = true
+                    print("Enter Triggered: Arrow navigation enabled for PDF Selection List")
+                } else if isShowingDirectorySelector || activePDFURL == nil {
+                    // Second Enter (inside selection mode): Select and open the highlighted PDF
                     if directorySelectedIndex >= 0 && directorySelectedIndex < pdfFiles.count {
                         let selectedFile = pdfFiles[directorySelectedIndex]
                         selectedPDFFileURL = selectedFile
                         isShowingDirectorySelector = false
-                        print("Enter Triggered: Selected highlighted PDF \(selectedFile.lastPathComponent)")
+                        // Keep arrow navigation active so arrows flip pages
+                        ActiveTabState.isArrowNavigationActive = true
+                        print("Enter Triggered: Loaded PDF \(selectedFile.lastPathComponent), arrows enabled for page turns")
                     } else if let firstFile = pdfFiles.first {
                         selectedPDFFileURL = firstFile
                         isShowingDirectorySelector = false
-                        print("Enter Triggered (Fallback): Selected first PDF \(firstFile.lastPathComponent)")
+                        ActiveTabState.isArrowNavigationActive = true
+                        print("Enter Triggered (Fallback): Loaded first PDF \(firstFile.lastPathComponent)")
                     }
                 } else {
-                    // In PDF viewer mode: Enter acts as Folder toggle button to return to selection mode
+                    // Enter in PDF viewer mode: Switch back to directory selection and release arrow keys
                     isShowingDirectorySelector = true
-                    print("Enter Triggered: Switched to PDF Selector mode")
+                    ActiveTabState.isArrowNavigationActive = false
+                    print("Enter Triggered: Returned to PDF Selector, arrows reset to tab cycling")
                 }
             }
         }
@@ -335,6 +344,7 @@ struct ContentView: View {
         }
         .onChange(of: selectedTab) { oldValue, newValue in
             ActiveTabState.selectedTab = newValue
+            ActiveTabState.isArrowNavigationActive = false
             if newValue == 1 {
                 isShowingDirectorySelector = true
                 ActiveTabState.isSelectorModeActive = true
