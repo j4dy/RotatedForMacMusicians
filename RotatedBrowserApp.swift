@@ -355,9 +355,46 @@ class RotatedWindow: NSWindow {
                     RotatedWindow.pendingNavigationWorkItem?.cancel()
                     RotatedWindow.pendingNavigationWorkItem = nil
                     
-                    print("Enter triggered on Browser: enabling arrow navigation")
-                    NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
-                    return
+                    if ActiveTabState.isArrowNavigationActive {
+                        print("Enter triggered in Browser (both buttons or physical Enter)")
+                        if let returnEvent = NSEvent.keyEvent(
+                            with: .keyDown,
+                            location: event.locationInWindow,
+                            modifierFlags: event.modifierFlags,
+                            timestamp: event.timestamp,
+                            windowNumber: event.windowNumber,
+                            context: nil,
+                            characters: "\r",
+                            charactersIgnoringModifiers: "\r",
+                            isARepeat: false,
+                            keyCode: 36
+                        ) {
+                            if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
+                                responder.keyDown(with: returnEvent)
+                                if let returnUpEvent = NSEvent.keyEvent(
+                                    with: .keyUp,
+                                    location: event.locationInWindow,
+                                    modifierFlags: event.modifierFlags,
+                                    timestamp: event.timestamp,
+                                    windowNumber: event.windowNumber,
+                                    context: nil,
+                                    characters: "\r",
+                                    charactersIgnoringModifiers: "\r",
+                                    isARepeat: false,
+                                    keyCode: 36
+                                ) {
+                                    responder.keyUp(with: returnUpEvent)
+                                }
+                            } else {
+                                super.sendEvent(returnEvent)
+                            }
+                        }
+                        return
+                    } else {
+                        print("Enter triggered on Browser: enabling arrow navigation")
+                        NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
+                        return
+                    }
                 }
             }
             
@@ -368,9 +405,27 @@ class RotatedWindow: NSWindow {
             if event.keyCode == 123 { // Left Arrow
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 
-                // If arrow navigation is active in browser tab, let the WebView process it natively
+                // If arrow navigation is active in browser tab, send Shift-Tab
                 if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
-                    super.sendEvent(event)
+                    print("Browser active arrow mode: Left -> Shift-Tab (down)")
+                    if let shiftTabEvent = NSEvent.keyEvent(
+                        with: .keyDown,
+                        location: event.locationInWindow,
+                        modifierFlags: event.modifierFlags.union(.shift),
+                        timestamp: event.timestamp,
+                        windowNumber: event.windowNumber,
+                        context: nil,
+                        characters: "\t",
+                        charactersIgnoringModifiers: "\t",
+                        isARepeat: event.isARepeat,
+                        keyCode: 48
+                    ) {
+                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
+                            responder.keyDown(with: shiftTabEvent)
+                        } else {
+                            super.sendEvent(shiftTabEvent)
+                        }
+                    }
                     return
                 }
                 
@@ -394,9 +449,27 @@ class RotatedWindow: NSWindow {
             if event.keyCode == 124 { // Right Arrow
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 
-                // If arrow navigation is active in browser tab, let the WebView process it natively
+                // If arrow navigation is active in browser tab, send Tab
                 if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
-                    super.sendEvent(event)
+                    print("Browser active arrow mode: Right -> Tab (down)")
+                    if let tabEvent = NSEvent.keyEvent(
+                        with: .keyDown,
+                        location: event.locationInWindow,
+                        modifierFlags: event.modifierFlags.subtracting(.shift),
+                        timestamp: event.timestamp,
+                        windowNumber: event.windowNumber,
+                        context: nil,
+                        characters: "\t",
+                        charactersIgnoringModifiers: "\t",
+                        isARepeat: event.isARepeat,
+                        keyCode: 48
+                    ) {
+                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
+                            responder.keyDown(with: tabEvent)
+                        } else {
+                            super.sendEvent(tabEvent)
+                        }
+                    }
                     return
                 }
                 
@@ -419,6 +492,53 @@ class RotatedWindow: NSWindow {
             }
         } else if event.type == .keyUp {
             RotatedWindow.pressedKeys.remove(event.keyCode)
+            
+            // Intercept Arrow Key releases when browser arrow navigation is active to prevent beeps or weird default web navigation behaviors
+            if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                if event.keyCode == 123 { // Left Arrow
+                    print("Browser active arrow mode: Left -> Shift-Tab (up)")
+                    if let shiftTabEvent = NSEvent.keyEvent(
+                        with: .keyUp,
+                        location: event.locationInWindow,
+                        modifierFlags: event.modifierFlags.union(.shift),
+                        timestamp: event.timestamp,
+                        windowNumber: event.windowNumber,
+                        context: nil,
+                        characters: "\t",
+                        charactersIgnoringModifiers: "\t",
+                        isARepeat: event.isARepeat,
+                        keyCode: 48
+                    ) {
+                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
+                            responder.keyUp(with: shiftTabEvent)
+                        } else {
+                            super.sendEvent(shiftTabEvent)
+                        }
+                    }
+                    return
+                } else if event.keyCode == 124 { // Right Arrow
+                    print("Browser active arrow mode: Right -> Tab (up)")
+                    if let tabEvent = NSEvent.keyEvent(
+                        with: .keyUp,
+                        location: event.locationInWindow,
+                        modifierFlags: event.modifierFlags.subtracting(.shift),
+                        timestamp: event.timestamp,
+                        windowNumber: event.windowNumber,
+                        context: nil,
+                        characters: "\t",
+                        charactersIgnoringModifiers: "\t",
+                        isARepeat: event.isARepeat,
+                        keyCode: 48
+                    ) {
+                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
+                            responder.keyUp(with: tabEvent)
+                        } else {
+                            super.sendEvent(tabEvent)
+                        }
+                    }
+                    return
+                }
+            }
         }
 
         if event.type == .keyDown {
@@ -472,6 +592,10 @@ class RotatedWindow: NSWindow {
             }
             if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "o" {
                 NotificationCenter.default.post(name: NSNotification.Name("TriggerPDFBrowse"), object: nil)
+                return
+            }
+            if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "r" {
+                NotificationCenter.default.post(name: NSNotification.Name("BrowserReloadURL"), object: nil)
                 return
             }
         }

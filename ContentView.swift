@@ -145,6 +145,19 @@ struct ContentView: View {
             print("Went to next page: \(directoryPage)")
         }
     }
+
+    private func refreshBrowserWithNewURL() {
+        let trimmed = defaultURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        var targetURLString = trimmed
+        if !targetURLString.lowercased().hasPrefix("http://") && !targetURLString.lowercased().hasPrefix("https://") {
+            targetURLString = "https://" + targetURLString
+        }
+        if let url = URL(string: targetURLString) {
+            let request = URLRequest(url: url)
+            WebViewStore.sharedWebView.load(request)
+            print("Refreshing browser with URL: \(url)")
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -318,7 +331,10 @@ struct ContentView: View {
                             defaultURL: $defaultURL,
                             defaultPDFLocation: $defaultPDFLocation,
                             isRotatedMouseEnabled: $isRotatedMouseEnabled,
-                            isRotateLeftEnabled: $isRotateLeftEnabled
+                            isRotateLeftEnabled: $isRotateLeftEnabled,
+                            onRefreshBrowser: {
+                                refreshBrowserWithNewURL()
+                            }
                         )
                         .id("tab-2")
                     }
@@ -381,6 +397,9 @@ struct ContentView: View {
                     .overlay(Circle().stroke(Color.black, lineWidth: 2))
                     .opacity(0.7)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserReloadURL"))) { _ in
+            refreshBrowserWithNewURL()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwitchToBrowser"))) { _ in
             selectedTab = 0
@@ -527,6 +546,7 @@ struct SettingsView: View {
     @Binding var defaultPDFLocation: String
     @Binding var isRotatedMouseEnabled: Bool
     @Binding var isRotateLeftEnabled: Bool
+    var onRefreshBrowser: () -> Void
     
     // Custom premium focus ring states
     @FocusState private var isURLFocused: Bool
@@ -547,22 +567,46 @@ struct SettingsView: View {
                         Text("Default Homepage URL")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondary)
-                        TextField("Enter default URL (e.g., https://www.wikipedia.org)", text: $defaultURL)
-                            .textFieldStyle(.plain)
-                            .font(.system(.body, design: .monospaced))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color(NSColor.controlBackgroundColor))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(isURLFocused ? Color.blue : Color.gray.opacity(0.3), lineWidth: isURLFocused ? 2 : 1)
-                                    .shadow(color: isURLFocused ? Color.blue.opacity(0.3) : Color.clear, radius: 4)
-                            )
-                            .focused($isURLFocused)
-                            .focusEffectDisabled()
+                        HStack(spacing: 12) {
+                            TextField("Enter default URL (e.g., https://www.wikipedia.org)", text: $defaultURL)
+                                .textFieldStyle(.plain)
+                                .font(.system(.body, design: .monospaced))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isURLFocused ? Color.blue : Color.gray.opacity(0.3), lineWidth: isURLFocused ? 2 : 1)
+                                        .shadow(color: isURLFocused ? Color.blue.opacity(0.3) : Color.clear, radius: 4)
+                                )
+                                .focused($isURLFocused)
+                                .focusEffectDisabled()
+                            
+                            Button(action: {
+                                onRefreshBrowser()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 12, weight: .bold))
+                                    Text("Refresh")
+                                    Text("⌥ R")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.white.opacity(0.2))
+                                        .cornerRadius(4)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 5)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
                 
