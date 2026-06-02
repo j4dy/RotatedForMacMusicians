@@ -403,6 +403,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserReloadURL"))) { _ in
             refreshBrowserWithNewURL()
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleAdBlocker"))) { _ in
+            isAdBlockerEnabled.toggle()
+            print("Toggled Ad Blocker via shortcut: \(isAdBlockerEnabled)")
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwitchToBrowser"))) { _ in
             selectedTab = 0
             print("Switched to Browser via shortcut")
@@ -620,16 +624,34 @@ struct SettingsView: View {
                         Divider()
                             .padding(.vertical, 5)
                         
-                        Toggle(isOn: $isAdBlockerEnabled) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Block Ads")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Compile and apply content blocking rules to filter ad networks natively.")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
+                        HStack {
+                            Toggle(isOn: $isAdBlockerEnabled) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Block Ads")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    Text("Compile and apply content blocking rules to filter ad networks natively.")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
                             }
+                            .toggleStyle(.switch)
+                            
+                            Spacer()
+                            
+                            Text("⌥ B")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                )
+                                .foregroundColor(.blue)
                         }
-                        .toggleStyle(.switch)
                     }
                 }
                 
