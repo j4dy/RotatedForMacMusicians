@@ -71,7 +71,7 @@ class WebViewStore {
                 "chartboost", "flurry", "mopub", "unityads", "ironsrc", "admob",
                 "applovin", "adserver", "adtech", "advertising", "smartadserver"
             ]
-            var rules: [[String: Any]] = adDomains.map { domain in
+            let rules: [[String: Any]] = adDomains.map { domain in
                 ["trigger": ["url-filter": ".*\(domain).*"], "action": ["type": "block"]]
             }
             guard let jsonData = try? JSONSerialization.data(withJSONObject: rules),
