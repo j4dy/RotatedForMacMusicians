@@ -249,24 +249,25 @@ class RotatedWindow: NSWindow {
                     clickCount: event.clickCount,
                     pressure: event.pressure
                 ) {
-                    // Only apply coordinate conversion bypass for SwiftUI private gesture views (not native fields/text views)
-                    let shouldBypass = (className.contains("SwiftUI") || className.contains("Hosting")) && !className.contains("Text") && !className.contains("Field")
-                    
-                    if shouldBypass {
-                        EventForwardingState.isForwardingEvent = true
-                    }
+                    // Always bypass coordinate conversion — coordinates are already translated to logical space
+                    EventForwardingState.isForwardingEvent = true
                     defer { EventForwardingState.isForwardingEvent = false }
                     
-                    if event.type == .leftMouseDown { hitView.mouseDown(with: translatedEvent) }
-                    else if event.type == .leftMouseUp { hitView.mouseUp(with: translatedEvent) }
-                    else if event.type == .rightMouseDown { hitView.rightMouseDown(with: translatedEvent) }
-                    else if event.type == .rightMouseUp { hitView.rightMouseUp(with: translatedEvent) }
-                    else if event.type == .otherMouseDown { hitView.otherMouseDown(with: translatedEvent) }
-                    else if event.type == .otherMouseUp { hitView.otherMouseUp(with: translatedEvent) }
-                    else if event.type == .mouseMoved { hitView.mouseMoved(with: translatedEvent) }
-                    else if event.type == .leftMouseDragged { hitView.mouseDragged(with: translatedEvent) }
-                    else if event.type == .rightMouseDragged { hitView.rightMouseDragged(with: translatedEvent) }
-                    else if event.type == .otherMouseDragged { hitView.otherMouseDragged(with: translatedEvent) }
+                    // Send to the NSHostingView (root of SwiftUI tree), NOT the deep leaf hitView.
+                    // SwiftUI's gesture/event engine lives in NSHostingView and must receive the event
+                    // at the root level to properly dispatch it to buttons, toggles, text fields, etc.
+                    let targetView = contentView.subviews.first ?? hitView
+                    
+                    if event.type == .leftMouseDown { targetView.mouseDown(with: translatedEvent) }
+                    else if event.type == .leftMouseUp { targetView.mouseUp(with: translatedEvent) }
+                    else if event.type == .rightMouseDown { targetView.rightMouseDown(with: translatedEvent) }
+                    else if event.type == .rightMouseUp { targetView.rightMouseUp(with: translatedEvent) }
+                    else if event.type == .otherMouseDown { targetView.otherMouseDown(with: translatedEvent) }
+                    else if event.type == .otherMouseUp { targetView.otherMouseUp(with: translatedEvent) }
+                    else if event.type == .mouseMoved { targetView.mouseMoved(with: translatedEvent) }
+                    else if event.type == .leftMouseDragged { targetView.mouseDragged(with: translatedEvent) }
+                    else if event.type == .rightMouseDragged { targetView.rightMouseDragged(with: translatedEvent) }
+                    else if event.type == .otherMouseDragged { targetView.otherMouseDragged(with: translatedEvent) }
                     return
                 }
             }
