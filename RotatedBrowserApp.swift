@@ -233,42 +233,12 @@ class RotatedWindow: NSWindow {
                 }
                 
                 // Pathway B: SwiftUI Views
-                // Translate physical coordinate to logical space and forward to the hit view directly.
-                let lx = isLeft ? physicalPoint.y : (PH - physicalPoint.y)
-                let ly = isLeft ? (self.frame.width - physicalPoint.x) : physicalPoint.x
-                
-                if let translatedEvent = NSEvent.mouseEvent(
-                    with: event.type,
-                    location: NSPoint(x: lx, y: ly),
-                    modifierFlags: event.modifierFlags,
-                    timestamp: event.timestamp,
-                    windowNumber: event.windowNumber,
-                    context: nil,
-                    eventNumber: event.eventNumber,
-                    clickCount: event.clickCount,
-                    pressure: event.pressure
-                ) {
-                    // Always bypass coordinate conversion — coordinates are already translated to logical space
-                    EventForwardingState.isForwardingEvent = true
-                    defer { EventForwardingState.isForwardingEvent = false }
-                    
-                    // Send to the NSHostingView (root of SwiftUI tree), NOT the deep leaf hitView.
-                    // SwiftUI's gesture/event engine lives in NSHostingView and must receive the event
-                    // at the root level to properly dispatch it to buttons, toggles, text fields, etc.
-                    let targetView = contentView.subviews.first ?? hitView
-                    
-                    if event.type == .leftMouseDown { targetView.mouseDown(with: translatedEvent) }
-                    else if event.type == .leftMouseUp { targetView.mouseUp(with: translatedEvent) }
-                    else if event.type == .rightMouseDown { targetView.rightMouseDown(with: translatedEvent) }
-                    else if event.type == .rightMouseUp { targetView.rightMouseUp(with: translatedEvent) }
-                    else if event.type == .otherMouseDown { targetView.otherMouseDown(with: translatedEvent) }
-                    else if event.type == .otherMouseUp { targetView.otherMouseUp(with: translatedEvent) }
-                    else if event.type == .mouseMoved { targetView.mouseMoved(with: translatedEvent) }
-                    else if event.type == .leftMouseDragged { targetView.mouseDragged(with: translatedEvent) }
-                    else if event.type == .rightMouseDragged { targetView.rightMouseDragged(with: translatedEvent) }
-                    else if event.type == .otherMouseDragged { targetView.otherMouseDragged(with: translatedEvent) }
-                    return
-                }
+                // AppKit's frameCenterRotation transform on RotatedHostingView already handles
+                // rotation-aware hit-testing and coordinate conversion correctly.
+                // Calling super.sendEvent delivers through the full NSWindow dispatch pipeline,
+                // which is required for SwiftUI's gesture engine to fire buttons/controls.
+                super.sendEvent(event)
+                return
             }
             
             super.sendEvent(event)
