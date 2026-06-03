@@ -61,18 +61,24 @@ class WebViewStore {
         userContentController.removeAllContentRuleLists()
         
         if isEnabled {
-            let blockRules = """
-            [
-                {
-                    "trigger": {
-                        "url-filter": ".*(googleads|doubleclick|adservice|adsystem|adnxs|pagead|googlesyndication|analytics|quantserve|scorecardresearch|taboola|outbrain|adroll|carbonads|adzerk|amazon-adsystem|openx|pubmatic|casalemedia|rubiconproject|adcolony|chartboost|flurry|mopub|unityads|ironsrc|admob|applovin|adserver|adtech|advertising|smartadserver).*\\\\..*"
-                    },
-                    "action": {
-                        "type": "block"
-                    }
-                }
+            // WKContentRuleListStore does not support regex disjunctions (|) in url-filter.
+            // Generate one rule per domain instead.
+            let adDomains = [
+                "googleads", "doubleclick", "adservice", "adsystem", "adnxs", "pagead",
+                "googlesyndication", "quantserve", "scorecardresearch", "taboola",
+                "outbrain", "adroll", "carbonads", "adzerk", "amazon-adsystem",
+                "openx", "pubmatic", "casalemedia", "rubiconproject", "adcolony",
+                "chartboost", "flurry", "mopub", "unityads", "ironsrc", "admob",
+                "applovin", "adserver", "adtech", "advertising", "smartadserver"
             ]
-            """
+            var rules: [[String: Any]] = adDomains.map { domain in
+                ["trigger": ["url-filter": ".*\(domain).*"], "action": ["type": "block"]]
+            }
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: rules),
+                  let blockRules = String(data: jsonData, encoding: .utf8) else {
+                print("Ad blocker: failed to serialize rules")
+                return
+            }
             WKContentRuleListStore.default().compileContentRuleList(
                 forIdentifier: "AdBlockerRules",
                 encodedContentRuleList: blockRules
@@ -84,7 +90,7 @@ class WebViewStore {
                 if let contentRuleList = contentRuleList {
                     DispatchQueue.main.async {
                         userContentController.add(contentRuleList)
-                        print("Ad Blocker applied successfully.")
+                        print("Ad Blocker applied successfully (\(adDomains.count) rules).")
                     }
                 }
             }

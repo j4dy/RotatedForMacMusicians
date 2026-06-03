@@ -215,7 +215,6 @@ class RotatedWindow: NSWindow {
             
             // 2. Find the exact Cocoa view under the physical mouse cursor for Web/PDF/SwiftUI routing
             if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
-                let className = hitView.className
                 
                 // Pathway A: Native Cocoa Views (WKWebView, PDFView)
                 // Forward the original physical event directly.
