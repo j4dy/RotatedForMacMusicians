@@ -1,10 +1,16 @@
 import SwiftUI
 import PDFKit
 
+fileprivate func isDirectory(_ url: URL) -> Bool {
+    var isDir: ObjCBool = false
+    return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+}
+
 struct ActiveTabState {
     static var selectedTab: Int = 0
     static var isSelectorModeActive: Bool = true
     static var isArrowNavigationActive: Bool = false
+    static var isCurrentImage: Bool = false
 }
 
 struct ContentView: View {
@@ -21,6 +27,7 @@ struct ContentView: View {
     @AppStorage("isAdBlockerEnabled") private var isAdBlockerEnabled: Bool = false
     
     @State private var selectedPDFFileURL: URL? = nil
+    @State private var currentDirectoryURL: URL? = nil
     @State private var isShowingDirectorySelector = false
     @State private var directorySelectedIndex = 0
     @State private var directoryPage = 0
@@ -37,6 +44,60 @@ struct ContentView: View {
         return URL(string: "https://www.google.com")!
     }
     
+    
+    // Helper to resolve the root PDF directory configured in settings
+    var defaultPDFLocationURL: URL {
+        if defaultPDFLocation.isEmpty {
+            return URL(fileURLWithPath: NSHomeDirectory())
+        }
+        let path = defaultPDFLocation.replacingOccurrences(of: "file://", with: "")
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
+            if isDir.boolValue {
+                return URL(fileURLWithPath: path)
+            } else {
+                return URL(fileURLWithPath: path).deletingLastPathComponent()
+            }
+        }
+        return URL(fileURLWithPath: NSHomeDirectory())
+    }
+    
+    // Helper to resolve the current active folder path
+    var resolvedCurrentDirectoryURL: URL {
+        if let current = currentDirectoryURL {
+            return current
+        }
+        return defaultPDFLocationURL
+    }
+
+    var showGoUpRow: Bool {
+        let currentPath = resolvedCurrentDirectoryURL.standardized.path
+        let defaultPath = defaultPDFLocationURL.standardized.path
+        return currentPath != defaultPath && currentPath != "/"
+    }
+
+    var showReturnToTabsRow: Bool {
+        let currentPath = resolvedCurrentDirectoryURL.standardized.path
+        let defaultPath = defaultPDFLocationURL.standardized.path
+        return currentPath == defaultPath && !hasPrevPage
+    }
+
+    var returnToTabsIndex: Int? {
+        return showReturnToTabsRow ? (showGoUpRow ? 1 : 0) : nil
+    }
+
+    var goUpIndex: Int? {
+        return showGoUpRow ? 0 : nil
+    }
+
+    var fileIndexOffset: Int {
+        var offset = 0
+        if showGoUpRow { offset += 1 }
+        if showReturnToTabsRow { offset += 1 }
+        if hasPrevPage { offset += 1 }
+        return offset
+    }
+
     // Helper to dynamically resolve the active PDF URL for display
     var activePDFURL: URL? {
         if let selected = selectedPDFFileURL {
@@ -58,26 +119,38 @@ struct ContentView: View {
         return nil // If it's a directory, return nil by default so we show the Directory Selection Mode!
     }
     
-    // Helper to list all PDF files in the default PDF folder/directory
+    // Helper to list all subdirectories, PDF files, and image files in the active directory
     var pdfFiles: [URL] {
-        if defaultPDFLocation.isEmpty { return [] }
-        let path = defaultPDFLocation.replacingOccurrences(of: "file://", with: "")
-        var isDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else { return [] }
-        
-        var dirPath = path
-        if !isDir.boolValue {
-            dirPath = (path as NSString).deletingLastPathComponent
-        }
-        
+        let dirURL = resolvedCurrentDirectoryURL
+        let imageExtensions = Set(["png", "jpg", "jpeg", "gif", "tiff", "bmp", "heic", "webp"])
         do {
-            let contents = try FileManager.default.contentsOfDirectory(atPath: dirPath)
-            return contents
-                .filter { $0.lowercased().hasSuffix(".pdf") }
-                .sorted()
-                .map { URL(fileURLWithPath: (dirPath as NSString).appendingPathComponent($0)) }
+            let contents = try FileManager.default.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+            
+            // Separate directories and files
+            var directories: [URL] = []
+            var filesList: [URL] = []
+            
+            for url in contents {
+                var isDir: ObjCBool = false
+                if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) {
+                    if isDir.boolValue {
+                        directories.append(url)
+                    } else {
+                        let ext = url.pathExtension.lowercased()
+                        if ext == "pdf" || imageExtensions.contains(ext) {
+                            filesList.append(url)
+                        }
+                    }
+                }
+            }
+            
+            // Sort each list alphabetically by name
+            directories.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            filesList.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            
+            return directories + filesList
         } catch {
-            print("Error listing PDFs in directory: \(error)")
+            print("Error listing contents of \(dirURL.path): \(error)")
             return []
         }
     }
@@ -111,24 +184,25 @@ struct ContentView: View {
 
     // Returns total count of interactive rows on current selector screen
     var totalSelectableItemsCount: Int {
-        var count = 1 + pagedPDFFiles.count // 1 Back button + files
-        if hasPrevPage { count += 1 }
+        var count = fileIndexOffset + pagedPDFFiles.count
         if hasNextPage { count += 1 }
         return count
     }
 
     var prevPageIndex: Int? {
-        if hasPrevPage {
-            return 1 + pagedPDFFiles.count
-        }
-        return nil
+        return hasPrevPage ? (showGoUpRow ? 1 : 0) : nil
     }
 
     var nextPageIndex: Int? {
         if hasNextPage {
-            return 1 + pagedPDFFiles.count + (hasPrevPage ? 1 : 0)
+            return fileIndexOffset + pagedPDFFiles.count
         }
         return nil
+    }
+
+    var pdfPageCounterText: String {
+        let currentPageNum = pdfTotalPageCount > 0 ? pdfCurrentPageIndex + 1 : 0
+        return "\(currentPageNum) / \(pdfTotalPageCount)"
     }
 
     private func goToPrevPage() {
@@ -145,6 +219,14 @@ struct ContentView: View {
             directorySelectedIndex = 0
             print("Went to next page: \(directoryPage)")
         }
+    }
+
+    private func goToParentDirectory() {
+        let parentURL = resolvedCurrentDirectoryURL.deletingLastPathComponent()
+        currentDirectoryURL = parentURL
+        directoryPage = 0
+        directorySelectedIndex = 0
+        print("Navigated up to parent directory: \(parentURL.path)")
     }
 
     private func refreshBrowserWithNewURL() {
@@ -259,7 +341,7 @@ struct ContentView: View {
                                     .buttonStyle(.plain)
                                     
                                     // Page Counter
-                                    Text("\(pdfTotalPageCount > 0 ? pdfCurrentPageIndex + 1 : 0) / \(pdfTotalPageCount)")
+                                    Text(pdfPageCounterText)
                                         .font(.system(size: 13, weight: .bold, design: .rounded))
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 12)
@@ -300,22 +382,33 @@ struct ContentView: View {
                             } else {
                                 // Directory File Selection Mode or Empty State
                                 DirectorySelectorView(
-                                    folderPath: defaultPDFLocation.isEmpty ? "No Folder Configured" : defaultPDFLocation,
+                                    folderPath: resolvedCurrentDirectoryURL.path,
                                     files: pagedPDFFiles,
                                     selectedIndex: $directorySelectedIndex,
                                     hasPrevPage: hasPrevPage,
                                     hasNextPage: hasNextPage,
                                     totalPages: totalPages,
                                     currentPage: directoryPage,
+                                    showGoUpRow: showGoUpRow,
+                                    showReturnToTabsRow: showReturnToTabsRow,
                                     onPrevPage: {
                                         goToPrevPage()
                                     },
                                     onNextPage: {
                                         goToNextPage()
                                     },
-                                    onSelect: { fileURL in
-                                        selectedPDFFileURL = fileURL
-                                        isShowingDirectorySelector = false
+                                    onGoUp: {
+                                        goToParentDirectory()
+                                    },
+                                    onSelect: { url in
+                                        if isDirectory(url) {
+                                            currentDirectoryURL = url
+                                            directoryPage = 0
+                                            directorySelectedIndex = 0
+                                        } else {
+                                            selectedPDFFileURL = url
+                                            isShowingDirectorySelector = false
+                                        }
                                     },
                                     onBack: {
                                         ActiveTabState.isArrowNavigationActive = false
@@ -365,7 +458,7 @@ struct ContentView: View {
                         selectedTab = 1 
                         print("Switched to PDF")
                     }) {
-                        Text("PDF (⌘2)")
+                        Text("PDF / images (⌘2)")
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(selectedTab == 1 ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
@@ -402,6 +495,12 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserReloadURL"))) { _ in
             refreshBrowserWithNewURL()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFImageGoToPrevious"))) { _ in
+            cycleImage(direction: -1)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFImageGoToNext"))) { _ in
+            cycleImage(direction: 1)
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleAdBlocker"))) { _ in
             isAdBlockerEnabled.toggle()
@@ -447,23 +546,32 @@ struct ContentView: View {
                     print("Enter Triggered: Arrow navigation enabled for PDF Selection List")
                 } else if isShowingDirectorySelector || activePDFURL == nil {
                     // Second Enter (inside selection mode)
-                    if directorySelectedIndex == 0 {
+                    if let returnIdx = returnToTabsIndex, directorySelectedIndex == returnIdx {
                         // "Return to Tab Navigation" option selected
                         ActiveTabState.isArrowNavigationActive = false
                         print("Enter Triggered: Selected Back button, arrows reset to tab cycling")
+                    } else if let goUpIdx = goUpIndex, directorySelectedIndex == goUpIdx {
+                        goToParentDirectory()
                     } else if let prevIndex = prevPageIndex, directorySelectedIndex == prevIndex {
                         goToPrevPage()
                     } else if let nextIndex = nextPageIndex, directorySelectedIndex == nextIndex {
                         goToNextPage()
                     } else {
-                        // Open the selected PDF file
-                        let fileIndex = directorySelectedIndex - 1
+                        // Open the selected PDF file or navigate into subdirectory
+                        let fileIndex = directorySelectedIndex - fileIndexOffset
                         if fileIndex >= 0 && fileIndex < pagedPDFFiles.count {
-                            let selectedFile = pagedPDFFiles[fileIndex]
-                            selectedPDFFileURL = selectedFile
-                            isShowingDirectorySelector = false
-                            ActiveTabState.isArrowNavigationActive = true
-                            print("Enter Triggered: Loaded PDF \(selectedFile.lastPathComponent), arrows enabled for page turns")
+                            let selectedURL = pagedPDFFiles[fileIndex]
+                            if isDirectory(selectedURL) {
+                                currentDirectoryURL = selectedURL
+                                directoryPage = 0
+                                directorySelectedIndex = 0
+                                print("Enter Triggered: Browsed into subdirectory \(selectedURL.lastPathComponent)")
+                            } else {
+                                selectedPDFFileURL = selectedURL
+                                isShowingDirectorySelector = false
+                                ActiveTabState.isArrowNavigationActive = true
+                                print("Enter Triggered: Loaded PDF \(selectedURL.lastPathComponent), arrows enabled for page turns")
+                            }
                         }
                     }
                 } else {
@@ -520,6 +628,7 @@ struct ContentView: View {
             
             // Compile and set up browser content filtering rules on launch
             WebViewStore.updateAdBlockerState()
+            updateCurrentImageState()
         }
         .onChange(of: isAdBlockerEnabled) { oldValue, newValue in
             WebViewStore.updateAdBlockerState()
@@ -532,12 +641,15 @@ struct ContentView: View {
                 isShowingDirectorySelector = true
                 ActiveTabState.isSelectorModeActive = true
             }
+            updateCurrentImageState()
         }
         .onChange(of: isShowingDirectorySelector) { oldValue, newValue in
             ActiveTabState.isSelectorModeActive = newValue || activePDFURL == nil
+            updateCurrentImageState()
         }
         .onChange(of: activePDFURL) { oldValue, newValue in
             ActiveTabState.isSelectorModeActive = isShowingDirectorySelector || newValue == nil
+            updateCurrentImageState()
         }
         .onChange(of: isRotateLeftEnabled) { oldValue, newValue in
             DispatchQueue.main.async {
@@ -546,8 +658,45 @@ struct ContentView: View {
         }
         .onChange(of: defaultPDFLocation) { oldValue, newValue in
             selectedPDFFileURL = nil
+            currentDirectoryURL = nil
             isShowingDirectorySelector = true
             ActiveTabState.isSelectorModeActive = true
+            updateCurrentImageState()
+        }
+    }
+    
+    private func updateCurrentImageState() {
+        if let url = activePDFURL, !isShowingDirectorySelector {
+            let ext = url.pathExtension.lowercased()
+            let imageExtensions = Set(["png", "jpg", "jpeg", "gif", "tiff", "bmp", "heic", "webp"])
+            ActiveTabState.isCurrentImage = imageExtensions.contains(ext)
+        } else {
+            ActiveTabState.isCurrentImage = false
+        }
+    }
+    
+    private func cycleImage(direction: Int) {
+        guard let currentURL = activePDFURL else { return }
+        let ext = currentURL.pathExtension.lowercased()
+        let imageExtensions = Set(["png", "jpg", "jpeg", "gif", "tiff", "bmp", "heic", "webp"])
+        guard imageExtensions.contains(ext) else { return }
+        
+        let allFiles = pdfFiles
+        let imageFiles = allFiles.filter { url in
+            let fileExt = url.pathExtension.lowercased()
+            return imageExtensions.contains(fileExt) && !isDirectory(url)
+        }
+        
+        guard !imageFiles.isEmpty else { return }
+        
+        if let currentIndex = imageFiles.firstIndex(of: currentURL) {
+            let newIndex = currentIndex + direction
+            if newIndex >= 0 && newIndex < imageFiles.count {
+                selectedPDFFileURL = imageFiles[newIndex]
+                print("Cycled image from \(currentURL.lastPathComponent) to \(imageFiles[newIndex].lastPathComponent)")
+            } else {
+                print("Reached end of directory; ignoring image cycle.")
+            }
         }
     }
 }
@@ -877,21 +1026,37 @@ struct DirectorySelectorView: View {
     let hasNextPage: Bool
     let totalPages: Int
     let currentPage: Int
+    let showGoUpRow: Bool
+    let showReturnToTabsRow: Bool
     let onPrevPage: () -> Void
     let onNextPage: () -> Void
+    let onGoUp: () -> Void
     let onSelect: (URL) -> Void
     let onBack: () -> Void
 
+    var returnToTabsIndex: Int? {
+        return showReturnToTabsRow ? (showGoUpRow ? 1 : 0) : nil
+    }
+
+    var goUpIndex: Int? {
+        return showGoUpRow ? 0 : nil
+    }
+
+    var fileIndexOffset: Int {
+        var offset = 0
+        if showGoUpRow { offset += 1 }
+        if showReturnToTabsRow { offset += 1 }
+        if hasPrevPage { offset += 1 }
+        return offset
+    }
+
     var prevPageIndex: Int? {
-        if hasPrevPage {
-            return 1 + files.count
-        }
-        return nil
+        return hasPrevPage ? (showGoUpRow ? 1 : 0) : nil
     }
 
     var nextPageIndex: Int? {
         if hasNextPage {
-            return 1 + files.count + (hasPrevPage ? 1 : 0)
+            return fileIndexOffset + files.count
         }
         return nil
     }
@@ -928,7 +1093,7 @@ struct DirectorySelectorView: View {
                 }
                 .padding(.bottom, 10)
                 
-                if files.isEmpty {
+                if files.isEmpty && !showGoUpRow {
                     VStack(spacing: 18) {
                         ZStack {
                             Circle()
@@ -954,97 +1119,48 @@ struct DirectorySelectorView: View {
                 } else {
                     // List of files
                     VStack(spacing: 12) {
-                        // Virtual Item at Index 0: Exit Arrow selection focus and return to Tab Navigation cycling
-                        Button(action: {
-                            selectedIndex = 0
-                            onBack()
-                        }) {
-                            HStack(spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(selectedIndex == 0 ? Color.red.opacity(0.2) : Color.gray.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "arrow.left.circle")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(selectedIndex == 0 ? .red : .gray)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Return to Tab Navigation")
-                                        .font(.system(size: 15, weight: selectedIndex == 0 ? .bold : .semibold))
-                                        .foregroundColor(selectedIndex == 0 ? .red : .primary)
-                                    Text("Release arrow keys to switch tabs")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedIndex == 0 ? Color.red.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                    .shadow(color: selectedIndex == 0 ? Color.red.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(selectedIndex == 0 ? Color.red : Color.gray.opacity(0.15), lineWidth: selectedIndex == 0 ? 2 : 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .focusable(false)
-                        
-                        // Render physical PDF files offset by 1
-                        ForEach(0..<files.count, id: \.self) { index in
-                            let fileURL = files[index]
-                            let virtualIndex = index + 1
+                        // Virtual Item: Go Up to Parent Directory (if showGoUpRow is true)
+                        if showGoUpRow, let goUpIdx = goUpIndex {
                             Button(action: {
-                                selectedIndex = virtualIndex
-                                onSelect(fileURL)
+                                selectedIndex = goUpIdx
+                                onGoUp()
                             }) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.2) : Color.cyan.opacity(0.15))
+                                            .fill(selectedIndex == goUpIdx ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
                                             .frame(width: 48, height: 48)
-                                        Image(systemName: selectedIndex == virtualIndex ? "doc.text.fill" : "doc.text")
+                                        Image(systemName: "arrow.up.doc")
                                             .font(.system(size: 22))
-                                            .foregroundColor(selectedIndex == virtualIndex ? .blue : .cyan)
+                                            .foregroundColor(selectedIndex == goUpIdx ? .blue : .gray)
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(fileURL.lastPathComponent)
-                                            .font(.system(size: 15, weight: selectedIndex == virtualIndex ? .bold : .semibold))
-                                            .foregroundColor(selectedIndex == virtualIndex ? .blue : .primary)
-                                            .lineLimit(1)
-                                            .multilineTextAlignment(.leading)
-                                        
-                                        Text(getFileSizeString(for: fileURL))
+                                        Text("Go Up to Parent Directory")
+                                            .font(.system(size: 15, weight: selectedIndex == goUpIdx ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == goUpIdx ? .blue : .primary)
+                                        Text("Go back to the upper level folder")
                                             .font(.system(size: 12))
                                             .foregroundColor(.secondary)
                                     }
-                                    
                                     Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(selectedIndex == virtualIndex ? .blue : .secondary.opacity(0.5))
                                 }
                                 .padding(14)
                                 .background(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                        .shadow(color: selectedIndex == virtualIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                        .fill(selectedIndex == goUpIdx ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == goUpIdx ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(selectedIndex == virtualIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == virtualIndex ? 2 : 1)
+                                        .stroke(selectedIndex == goUpIdx ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == goUpIdx ? 2 : 1)
                                 )
                             }
                             .buttonStyle(.plain)
                             .focusable(false)
                         }
 
-                        // Previous Page Row
+                        // Previous Page Row (if hasPrevPage is true)
                         if hasPrevPage, let prevIndex = prevPageIndex {
                             Button(action: {
                                 selectedIndex = prevIndex
@@ -1084,6 +1200,109 @@ struct DirectorySelectorView: View {
                             .buttonStyle(.plain)
                             .focusable(false)
                         }
+
+                        // Virtual Item: Exit Arrow selection focus and return to Tab Navigation cycling (if showReturnToTabsRow is true)
+                        if showReturnToTabsRow, let returnIdx = returnToTabsIndex {
+                            Button(action: {
+                                selectedIndex = returnIdx
+                                onBack()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == returnIdx ? Color.red.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.left.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == returnIdx ? .red : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Return to Tab Navigation")
+                                            .font(.system(size: 15, weight: selectedIndex == returnIdx ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == returnIdx ? .red : .primary)
+                                        Text("Release arrow keys to switch tabs")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == returnIdx ? Color.red.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == returnIdx ? Color.red.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == returnIdx ? Color.red : Color.gray.opacity(0.15), lineWidth: selectedIndex == returnIdx ? 2 : 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .focusable(false)
+                        }
+                        
+                        // Render physical files (directories and PDF files)
+                        ForEach(0..<files.count, id: \.self) { index in
+                            let fileURL = files[index]
+                            let virtualIndex = index + fileIndexOffset
+                            let isDir = isDirectory(fileURL)
+                            let ext = fileURL.pathExtension.lowercased()
+                            let isImg = ["png", "jpg", "jpeg", "gif", "tiff", "bmp", "heic", "webp"].contains(ext)
+                            
+                            let iconName = isDir ? (selectedIndex == virtualIndex ? "folder.fill" : "folder") : (isImg ? (selectedIndex == virtualIndex ? "photo.fill" : "photo") : (selectedIndex == virtualIndex ? "doc.text.fill" : "doc.text"))
+                            let iconColor = selectedIndex == virtualIndex ? Color.blue : (isDir ? Color.orange : (isImg ? Color.purple : Color.cyan))
+                            let iconBgColor = selectedIndex == virtualIndex ? Color.blue.opacity(0.2) : (isDir ? Color.orange.opacity(0.15) : (isImg ? Color.purple.opacity(0.15) : Color.cyan.opacity(0.15)))
+                            let fileDesc = isDir ? "Folder" : (isImg ? "Image (\(getFileSizeString(for: fileURL)))" : getFileSizeString(for: fileURL))
+                            
+                            Button(action: {
+                                selectedIndex = virtualIndex
+                                onSelect(fileURL)
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(iconBgColor)
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: iconName)
+                                            .font(.system(size: 22))
+                                            .foregroundColor(iconColor)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(fileURL.lastPathComponent)
+                                            .font(.system(size: 15, weight: selectedIndex == virtualIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == virtualIndex ? .blue : .primary)
+                                            .lineLimit(1)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Text(fileDesc)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(selectedIndex == virtualIndex ? .blue : .secondary.opacity(0.5))
+                                }
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == virtualIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == virtualIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == virtualIndex ? 2 : 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .focusable(false)
+                        }
+
+
 
                         // Next Page Row
                         if hasNextPage, let nextIndex = nextPageIndex {

@@ -131,11 +131,23 @@ class PDFPageImageView: NSView {
 
     // Called by the SwiftUI wrapper when the URL changes
     func load(url: URL) {
-        let newDoc = PDFDocument(url: url)
-        coordinator.document = newDoc
-        coordinator.currentIndex = 0
-        lastRenderedIndex = -1      // force re-render
-        scheduleRender()
+        let ext = url.pathExtension.lowercased()
+        let isImage = ["png", "jpg", "jpeg", "gif", "tiff", "bmp", "heic", "webp"].contains(ext)
+        
+        if isImage {
+            coordinator.document = nil
+            coordinator.currentIndex = 0
+            lastRenderedIndex = -1
+            let img = NSImage(contentsOf: url)
+            imageView.image = img
+            onPageChanged?(0, 1)
+        } else {
+            let newDoc = PDFDocument(url: url)
+            coordinator.document = newDoc
+            coordinator.currentIndex = 0
+            lastRenderedIndex = -1      // force re-render
+            scheduleRender()
+        }
     }
 
     // MARK: Layout
@@ -143,10 +155,12 @@ class PDFPageImageView: NSView {
     override func layout() {
         super.layout()
         imageView.frame = bounds
-        // Re-render if size changed meaningfully
-        if abs(bounds.width - lastRenderedSize.width) > 1 ||
-           abs(bounds.height - lastRenderedSize.height) > 1 {
-            scheduleRender()
+        // Re-render if size changed meaningfully and it's a PDF
+        if coordinator.document != nil {
+            if abs(bounds.width - lastRenderedSize.width) > 1 ||
+               abs(bounds.height - lastRenderedSize.height) > 1 {
+                scheduleRender()
+            }
         }
     }
 
@@ -154,6 +168,9 @@ class PDFPageImageView: NSView {
 
     private func scheduleRender() {
         renderWorkItem?.cancel()
+        if coordinator.document == nil {
+            return
+        }
         let idx = coordinator.currentIndex
         let size = bounds.size
         guard size.width > 0, size.height > 0 else { return }

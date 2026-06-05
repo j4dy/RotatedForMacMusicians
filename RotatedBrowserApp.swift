@@ -405,6 +405,8 @@ class RotatedWindow: NSWindow {
                     } else if ActiveTabState.selectedTab == 1 && ActiveTabState.isArrowNavigationActive {
                         if ActiveTabState.isSelectorModeActive {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionUp"), object: nil)
+                        } else if ActiveTabState.isCurrentImage {
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFImageGoToPrevious"), object: nil)
                         } else {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
                         }
@@ -449,6 +451,8 @@ class RotatedWindow: NSWindow {
                     } else if ActiveTabState.selectedTab == 1 && ActiveTabState.isArrowNavigationActive {
                         if ActiveTabState.isSelectorModeActive {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFNavigateSelectionDown"), object: nil)
+                        } else if ActiveTabState.isCurrentImage {
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFImageGoToNext"), object: nil)
                         } else {
                             NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
                         }
