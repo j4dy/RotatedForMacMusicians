@@ -231,12 +231,45 @@ class RotatedWindow: NSWindow {
                     else if event.type == .otherMouseDragged { hitView.otherMouseDragged(with: event) }
                     return
                 }
-                
                 // Pathway B: SwiftUI Views
-                // AppKit's frameCenterRotation transform on RotatedHostingView already handles
-                // rotation-aware hit-testing and coordinate conversion correctly.
-                // Calling super.sendEvent delivers through the full NSWindow dispatch pipeline,
-                // which is required for SwiftUI's gesture engine to fire buttons/controls.
+                // Translate physical coordinate to logical space and forward.
+                let lx = isLeft ? physicalPoint.y : (PH - physicalPoint.y)
+                let ly = isLeft ? (self.frame.width - physicalPoint.x) : physicalPoint.x
+                
+                if let translatedEvent = NSEvent.mouseEvent(
+                    with: event.type,
+                    location: NSPoint(x: lx, y: ly),
+                    modifierFlags: event.modifierFlags,
+                    timestamp: event.timestamp,
+                    windowNumber: event.windowNumber,
+                    context: nil,
+                    eventNumber: event.eventNumber,
+                    clickCount: event.clickCount,
+                    pressure: event.pressure
+                ) {
+                    let className = hitView.className
+                    let shouldBypass = (className.contains("SwiftUI") || className.contains("Hosting")) && !className.contains("Text") && !className.contains("Field")
+                    
+                    if shouldBypass {
+                        EventForwardingState.isForwardingEvent = true
+                    }
+                    defer { EventForwardingState.isForwardingEvent = false }
+                    
+                    let targetView = shouldBypass ? (contentView.subviews.first ?? hitView) : hitView
+                    
+                    if event.type == .leftMouseDown { targetView.mouseDown(with: translatedEvent) }
+                    else if event.type == .leftMouseUp { targetView.mouseUp(with: translatedEvent) }
+                    else if event.type == .rightMouseDown { targetView.rightMouseDown(with: translatedEvent) }
+                    else if event.type == .rightMouseUp { targetView.rightMouseUp(with: translatedEvent) }
+                    else if event.type == .otherMouseDown { targetView.otherMouseDown(with: translatedEvent) }
+                    else if event.type == .otherMouseUp { targetView.otherMouseUp(with: translatedEvent) }
+                    else if event.type == .mouseMoved { targetView.mouseMoved(with: translatedEvent) }
+                    else if event.type == .leftMouseDragged { targetView.mouseDragged(with: translatedEvent) }
+                    else if event.type == .rightMouseDragged { targetView.rightMouseDragged(with: translatedEvent) }
+                    else if event.type == .otherMouseDragged { targetView.otherMouseDragged(with: translatedEvent) }
+                    return
+                }
+                
                 super.sendEvent(event)
                 return
             }
@@ -373,6 +406,11 @@ class RotatedWindow: NSWindow {
 
             // Left/Right Arrow key behavior
             if event.keyCode == 123 { // Left Arrow
+                if let responder = self.firstResponder as? NSView,
+                   responder.className.contains("TextField") || responder.className.contains("NSText") {
+                    super.sendEvent(event)
+                    return
+                }
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 
                 // If arrow navigation is active in browser tab, send Shift-Tab
@@ -419,6 +457,11 @@ class RotatedWindow: NSWindow {
                 return
             }
             if event.keyCode == 124 { // Right Arrow
+                if let responder = self.firstResponder as? NSView,
+                   responder.className.contains("TextField") || responder.className.contains("NSText") {
+                    super.sendEvent(event)
+                    return
+                }
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 
                 // If arrow navigation is active in browser tab, send Tab
@@ -582,7 +625,7 @@ class RotatedWindow: NSWindow {
         if event.type == .keyDown || event.type == .keyUp {
             if let responder = self.firstResponder as? NSView {
                 let className = responder.className
-                if className.contains("WK") || className.contains("TextField") {
+                if className.contains("WK") || className.contains("TextField") || className.contains("NSText") {
                     if event.type == .keyDown { responder.keyDown(with: event); return }
                     else { responder.keyUp(with: event); return }
                 }
