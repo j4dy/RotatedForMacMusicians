@@ -248,7 +248,8 @@ class RotatedWindow: NSWindow {
                     pressure: event.pressure
                 ) {
                     let className = hitView.className
-                    let shouldBypass = (className.contains("SwiftUI") || className.contains("Hosting")) && !className.contains("Text") && !className.contains("Field")
+                    let isTextField = className.contains("Text") || className.contains("Field")
+                    let shouldBypass = !isTextField
                     
                     if shouldBypass {
                         EventForwardingState.isForwardingEvent = true
