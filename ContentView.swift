@@ -940,6 +940,7 @@ struct SettingsView: View {
     
     // Natively choose a PDF folder/directory path from macOS file browser
     private func selectPDFFile() {
+        print("[DEBUG] selectPDFFile action called!")
         let openPanel = NSOpenPanel()
         openPanel.title = "Select Default PDF Directory"
         openPanel.allowsMultipleSelection = false

@@ -213,26 +213,13 @@ class RotatedWindow: NSWindow {
                 return
             }
             
-            // 2. Find the exact Cocoa view under the physical mouse cursor for Web/PDF/SwiftUI routing
-            if let hitView = findTargetView(in: contentView, physicalPoint: physicalPoint) {
-                
-                // Pathway A: Native Cocoa Views (WKWebView, PDFView)
-                // Forward the original physical event directly.
-                if isNativeView(hitView) {
-                    if event.type == .leftMouseDown { hitView.mouseDown(with: event) }
-                    else if event.type == .leftMouseUp { hitView.mouseUp(with: event) }
-                    else if event.type == .rightMouseDown { hitView.rightMouseDown(with: event) }
-                    else if event.type == .rightMouseUp { hitView.rightMouseUp(with: event) }
-                    else if event.type == .otherMouseDown { hitView.otherMouseDown(with: event) }
-                    else if event.type == .otherMouseUp { hitView.otherMouseUp(with: event) }
-                    else if event.type == .mouseMoved { hitView.mouseMoved(with: event) }
-                    else if event.type == .leftMouseDragged { hitView.mouseDragged(with: event) }
-                    else if event.type == .rightMouseDragged { hitView.rightMouseDragged(with: event) }
-                    else if event.type == .otherMouseDragged { hitView.otherMouseDragged(with: event) }
-                    return
-                }
-                // Pathway B: SwiftUI Views
-                // Translate physical coordinate to logical space and forward.
+            let hostingView = contentView.subviews.first
+            let hit = contentView.hitTest(physicalPoint)
+            
+
+            if let hosting = hostingView, hit == hosting {
+                // Pathway B: Pure SwiftUI Views
+                // Translate physical coordinate to logical space and forward to NSHostingView
                 let lx = isLeft ? physicalPoint.y : (PH - physicalPoint.y)
                 let ly = isLeft ? (self.frame.width - physicalPoint.x) : physicalPoint.x
                 
@@ -247,32 +234,21 @@ class RotatedWindow: NSWindow {
                     clickCount: event.clickCount,
                     pressure: event.pressure
                 ) {
-                    let className = hitView.className
-                    let isTextField = className.contains("Text") || className.contains("Field")
-                    let shouldBypass = !isTextField
-                    
-                    if shouldBypass {
-                        EventForwardingState.isForwardingEvent = true
-                    }
+                    EventForwardingState.isForwardingEvent = true
                     defer { EventForwardingState.isForwardingEvent = false }
                     
-                    let targetView = shouldBypass ? (contentView.subviews.first ?? hitView) : hitView
-                    
-                    if event.type == .leftMouseDown { targetView.mouseDown(with: translatedEvent) }
-                    else if event.type == .leftMouseUp { targetView.mouseUp(with: translatedEvent) }
-                    else if event.type == .rightMouseDown { targetView.rightMouseDown(with: translatedEvent) }
-                    else if event.type == .rightMouseUp { targetView.rightMouseUp(with: translatedEvent) }
-                    else if event.type == .otherMouseDown { targetView.otherMouseDown(with: translatedEvent) }
-                    else if event.type == .otherMouseUp { targetView.otherMouseUp(with: translatedEvent) }
-                    else if event.type == .mouseMoved { targetView.mouseMoved(with: translatedEvent) }
-                    else if event.type == .leftMouseDragged { targetView.mouseDragged(with: translatedEvent) }
-                    else if event.type == .rightMouseDragged { targetView.rightMouseDragged(with: translatedEvent) }
-                    else if event.type == .otherMouseDragged { targetView.otherMouseDragged(with: translatedEvent) }
+                    if event.type == .leftMouseDown { hosting.mouseDown(with: translatedEvent) }
+                    else if event.type == .leftMouseUp { hosting.mouseUp(with: translatedEvent) }
+                    else if event.type == .rightMouseDown { hosting.rightMouseDown(with: translatedEvent) }
+                    else if event.type == .rightMouseUp { hosting.rightMouseUp(with: translatedEvent) }
+                    else if event.type == .otherMouseDown { hosting.otherMouseDown(with: translatedEvent) }
+                    else if event.type == .otherMouseUp { hosting.otherMouseUp(with: translatedEvent) }
+                    else if event.type == .mouseMoved { hosting.mouseMoved(with: translatedEvent) }
+                    else if event.type == .leftMouseDragged { hosting.mouseDragged(with: translatedEvent) }
+                    else if event.type == .rightMouseDragged { hosting.rightMouseDragged(with: translatedEvent) }
+                    else if event.type == .otherMouseDragged { hosting.otherMouseDragged(with: translatedEvent) }
                     return
                 }
-                
-                super.sendEvent(event)
-                return
             }
             
             super.sendEvent(event)
@@ -639,10 +615,17 @@ class RotatedWindow: NSWindow {
 
 class RotatedContainerView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let hostingView = self.subviews.first else {
+        guard let window = self.window as? RotatedWindow else {
             return super.hitTest(point)
         }
-        return hostingView.hitTest(point)
+        guard let target = window.findTargetView(in: self, physicalPoint: point) else {
+            return nil
+        }
+        let name = target.className
+        if name.contains("WK") || name.contains("PDF") || name.contains("Text") || name.contains("Field") || name.contains("Switch") {
+            return target
+        }
+        return self.subviews.first ?? target
     }
 }
 
