@@ -1302,8 +1302,13 @@ struct DirectorySelectorView: View {
                         // Virtual Item: Go Up to Parent Directory (if showGoUpRow is true)
                         if showGoUpRow, let goUpIdx = goUpIndex {
                             ClickableRowWrapper(
-                                immediateAction: { selectedIndex = goUpIdx },
-                                action: { onGoUp() }
+                                immediateAction: {
+                                    selectedIndex = goUpIdx
+                                    ActiveTabState.isArrowNavigationActive = true
+                                },
+                                action: {
+                                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
+                                }
                             ) {
                                 HStack(spacing: 16) {
                                     ZStack {
@@ -1341,8 +1346,13 @@ struct DirectorySelectorView: View {
                         // Previous Page Row (if hasPrevPage is true)
                         if hasPrevPage, let prevIndex = prevPageIndex {
                             ClickableRowWrapper(
-                                immediateAction: { selectedIndex = prevIndex },
-                                action: { onPrevPage() }
+                                immediateAction: {
+                                    selectedIndex = prevIndex
+                                    ActiveTabState.isArrowNavigationActive = true
+                                },
+                                action: {
+                                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
+                                }
                             ) {
                                 HStack(spacing: 16) {
                                     ZStack {
@@ -1380,8 +1390,13 @@ struct DirectorySelectorView: View {
                         // Virtual Item: Exit Arrow selection focus and return to Tab Navigation cycling (if showReturnToTabsRow is true)
                         if showReturnToTabsRow, let returnIdx = returnToTabsIndex {
                             ClickableRowWrapper(
-                                immediateAction: { selectedIndex = returnIdx },
-                                action: { onBack() }
+                                immediateAction: {
+                                    selectedIndex = returnIdx
+                                    ActiveTabState.isArrowNavigationActive = true
+                                },
+                                action: {
+                                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
+                                }
                             ) {
                                 HStack(spacing: 16) {
                                     ZStack {
@@ -1430,8 +1445,13 @@ struct DirectorySelectorView: View {
                             let fileDesc = isDir ? "Folder" : (isImg ? "Image (\(getFileSizeString(for: fileURL)))" : getFileSizeString(for: fileURL))
                             
                             ClickableRowWrapper(
-                                immediateAction: { selectedIndex = virtualIndex },
-                                action: { onSelect(fileURL) }
+                                immediateAction: {
+                                    selectedIndex = virtualIndex
+                                    ActiveTabState.isArrowNavigationActive = true
+                                },
+                                action: {
+                                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
+                                }
                             ) {
                                 HStack(spacing: 16) {
                                     ZStack {
@@ -1477,8 +1497,13 @@ struct DirectorySelectorView: View {
                         // Next Page Row
                         if hasNextPage, let nextIndex = nextPageIndex {
                             ClickableRowWrapper(
-                                immediateAction: { selectedIndex = nextIndex },
-                                action: { onNextPage() }
+                                immediateAction: {
+                                    selectedIndex = nextIndex
+                                    ActiveTabState.isArrowNavigationActive = true
+                                },
+                                action: {
+                                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
+                                }
                             ) {
                                 HStack(spacing: 16) {
                                     ZStack {
