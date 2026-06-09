@@ -1084,6 +1084,43 @@ struct NativeClickOverlay: NSViewRepresentable {
     }
 }
 
+// MARK: - Clickable Row Wrapper with Visual Flash Feedback
+struct ClickableRowWrapper<Content: View>: View {
+    let action: () -> Void
+    let content: Content
+    
+    @State private var isFlashing = false
+    
+    init(action: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.action = action
+        self.content = content()
+    }
+    
+    var body: some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isFlashing ? Color.green.opacity(0.25) : Color.clear)
+                    .animation(.easeInOut(duration: 0.15), value: isFlashing)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isFlashing ? Color.green : Color.clear, lineWidth: isFlashing ? 4 : 0)
+                    .animation(.easeInOut(duration: 0.15), value: isFlashing)
+            )
+            .overlay(
+                NativeClickOverlay {
+                    print("[DEBUG] ClickableRowWrapper action triggered. Flashing green!")
+                    isFlashing = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        isFlashing = false
+                        action()
+                    }
+                }
+            )
+    }
+}
+
 // MARK: - Premium Shortcut Row Component
 struct ShortcutRow: View {
     let keys: String
@@ -1251,122 +1288,119 @@ struct DirectorySelectorView: View {
                     VStack(spacing: 12) {
                         // Virtual Item: Go Up to Parent Directory (if showGoUpRow is true)
                         if showGoUpRow, let goUpIdx = goUpIndex {
-                            HStack(spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(selectedIndex == goUpIdx ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "arrow.up.doc")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(selectedIndex == goUpIdx ? .blue : .gray)
+                            ClickableRowWrapper(action: {
+                                selectedIndex = goUpIdx
+                                onGoUp()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == goUpIdx ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.up.doc")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == goUpIdx ? .blue : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Go Up to Parent Directory")
+                                            .font(.system(size: 15, weight: selectedIndex == goUpIdx ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == goUpIdx ? .blue : .primary)
+                                        Text("Go back to the upper level folder")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
                                 }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Go Up to Parent Directory")
-                                        .font(.system(size: 15, weight: selectedIndex == goUpIdx ? .bold : .semibold))
-                                        .foregroundColor(selectedIndex == goUpIdx ? .blue : .primary)
-                                    Text("Go back to the upper level folder")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == goUpIdx ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == goUpIdx ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == goUpIdx ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == goUpIdx ? 2 : 1)
+                                )
                             }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedIndex == goUpIdx ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                    .shadow(color: selectedIndex == goUpIdx ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(selectedIndex == goUpIdx ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == goUpIdx ? 2 : 1)
-                            )
-                            .overlay(
-                                NativeClickOverlay {
-                                    selectedIndex = goUpIdx
-                                    onGoUp()
-                                }
-                            )
                         }
 
                         // Previous Page Row (if hasPrevPage is true)
                         if hasPrevPage, let prevIndex = prevPageIndex {
-                            HStack(spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(selectedIndex == prevIndex ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "arrow.up.circle")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(selectedIndex == prevIndex ? .blue : .gray)
+                            ClickableRowWrapper(action: {
+                                selectedIndex = prevIndex
+                                onPrevPage()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == prevIndex ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.up.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == prevIndex ? .blue : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Previous Page")
+                                            .font(.system(size: 15, weight: selectedIndex == prevIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == prevIndex ? .blue : .primary)
+                                        Text("Go to page \(currentPage) of \(totalPages)")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
                                 }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Previous Page")
-                                        .font(.system(size: 15, weight: selectedIndex == prevIndex ? .bold : .semibold))
-                                        .foregroundColor(selectedIndex == prevIndex ? .blue : .primary)
-                                    Text("Go to page \(currentPage) of \(totalPages)")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == prevIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == prevIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == prevIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == prevIndex ? 2 : 1)
+                                )
                             }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedIndex == prevIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                    .shadow(color: selectedIndex == prevIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(selectedIndex == prevIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == prevIndex ? 2 : 1)
-                            )
-                            .overlay(
-                                NativeClickOverlay {
-                                    selectedIndex = prevIndex
-                                    onPrevPage()
-                                }
-                            )
                         }
 
                         // Virtual Item: Exit Arrow selection focus and return to Tab Navigation cycling (if showReturnToTabsRow is true)
                         if showReturnToTabsRow, let returnIdx = returnToTabsIndex {
-                            HStack(spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(selectedIndex == returnIdx ? Color.red.opacity(0.2) : Color.gray.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "arrow.left.circle")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(selectedIndex == returnIdx ? .red : .gray)
+                            ClickableRowWrapper(action: {
+                                selectedIndex = returnIdx
+                                onBack()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == returnIdx ? Color.red.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.left.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == returnIdx ? .red : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Return to Tab Navigation")
+                                            .font(.system(size: 15, weight: selectedIndex == returnIdx ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == returnIdx ? .red : .primary)
+                                        Text("Release arrow keys to switch tabs")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
                                 }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Return to Tab Navigation")
-                                        .font(.system(size: 15, weight: selectedIndex == returnIdx ? .bold : .semibold))
-                                        .foregroundColor(selectedIndex == returnIdx ? .red : .primary)
-                                    Text("Release arrow keys to switch tabs")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == returnIdx ? Color.red.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == returnIdx ? Color.red.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == returnIdx ? Color.red : Color.gray.opacity(0.15), lineWidth: selectedIndex == returnIdx ? 2 : 1)
+                                )
                             }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedIndex == returnIdx ? Color.red.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                    .shadow(color: selectedIndex == returnIdx ? Color.red.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(selectedIndex == returnIdx ? Color.red : Color.gray.opacity(0.15), lineWidth: selectedIndex == returnIdx ? 2 : 1)
-                            )
-                            .overlay(
-                                NativeClickOverlay {
-                                    selectedIndex = returnIdx
-                                    onBack()
-                                }
-                            )
                         }
                         
                         // Render physical files (directories and PDF files)
@@ -1382,92 +1416,88 @@ struct DirectorySelectorView: View {
                             let iconBgColor = selectedIndex == virtualIndex ? Color.blue.opacity(0.2) : (isDir ? Color.orange.opacity(0.15) : (isImg ? Color.purple.opacity(0.15) : Color.cyan.opacity(0.15)))
                             let fileDesc = isDir ? "Folder" : (isImg ? "Image (\(getFileSizeString(for: fileURL)))" : getFileSizeString(for: fileURL))
                             
-                            HStack(spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(iconBgColor)
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: iconName)
-                                        .font(.system(size: 22))
-                                        .foregroundColor(iconColor)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(fileURL.lastPathComponent)
-                                        .font(.system(size: 15, weight: selectedIndex == virtualIndex ? .bold : .semibold))
-                                        .foregroundColor(selectedIndex == virtualIndex ? .blue : .primary)
-                                        .lineLimit(1)
-                                        .multilineTextAlignment(.leading)
+                            ClickableRowWrapper(action: {
+                                selectedIndex = virtualIndex
+                                onSelect(fileURL)
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(iconBgColor)
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: iconName)
+                                            .font(.system(size: 22))
+                                            .foregroundColor(iconColor)
+                                    }
                                     
-                                    Text(fileDesc)
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(fileURL.lastPathComponent)
+                                            .font(.system(size: 15, weight: selectedIndex == virtualIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == virtualIndex ? .blue : .primary)
+                                            .lineLimit(1)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Text(fileDesc)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(selectedIndex == virtualIndex ? .blue : .secondary.opacity(0.5))
                                 }
-                                
-                                Spacer()
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(selectedIndex == virtualIndex ? .blue : .secondary.opacity(0.5))
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == virtualIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == virtualIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == virtualIndex ? 2 : 1)
+                                )
                             }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedIndex == virtualIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                    .shadow(color: selectedIndex == virtualIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(selectedIndex == virtualIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == virtualIndex ? 2 : 1)
-                            )
-                            .overlay(
-                                NativeClickOverlay {
-                                    selectedIndex = virtualIndex
-                                    onSelect(fileURL)
-                                }
-                            )
                         }
-
-
 
                         // Next Page Row
                         if hasNextPage, let nextIndex = nextPageIndex {
-                            HStack(spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(selectedIndex == nextIndex ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "arrow.down.circle")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(selectedIndex == nextIndex ? .blue : .gray)
+                            ClickableRowWrapper(action: {
+                                selectedIndex = nextIndex
+                                onNextPage()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(selectedIndex == nextIndex ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(selectedIndex == nextIndex ? .blue : .gray)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Next Page")
+                                            .font(.system(size: 15, weight: selectedIndex == nextIndex ? .bold : .semibold))
+                                            .foregroundColor(selectedIndex == nextIndex ? .blue : .primary)
+                                        Text("Go to page \(currentPage + 2) of \(totalPages)")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
                                 }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Next Page")
-                                        .font(.system(size: 15, weight: selectedIndex == nextIndex ? .bold : .semibold))
-                                        .foregroundColor(selectedIndex == nextIndex ? .blue : .primary)
-                                    Text("Go to page \(currentPage + 2) of \(totalPages)")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(selectedIndex == nextIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                                        .shadow(color: selectedIndex == nextIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedIndex == nextIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == nextIndex ? 2 : 1)
+                                )
                             }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedIndex == nextIndex ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                                    .shadow(color: selectedIndex == nextIndex ? Color.blue.opacity(0.1) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(selectedIndex == nextIndex ? Color.blue : Color.gray.opacity(0.15), lineWidth: selectedIndex == nextIndex ? 2 : 1)
-                            )
-                            .overlay(
-                                NativeClickOverlay {
-                                    selectedIndex = nextIndex
-                                    onNextPage()
-                                }
-                            )
                         }
                     }
                 }
