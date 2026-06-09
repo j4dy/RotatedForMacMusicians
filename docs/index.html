@@ -695,6 +695,15 @@
                     By tweaking the window's <code>hitTest(_:)</code> implementation to check the target leaf control and its ancestral tree for <code>"Button"</code>, physical events are routed directly to the native control. The native button handles its own drag-tracking loops natively, firing the actions perfectly every time.
                 </p>
             </div>
+            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
+                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">State Synchronization</h3>
+                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.6;">
+                    To provide tactile visual click feedback, we implemented a 250ms green flash on the selector items. However, delaying actions creates a critical race condition: if a user clicks a row and immediately presses keyboard arrows, the active selection index gets out of sync.
+                </p>
+                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
+                    We solved this by splitting row events into an <strong>immediate action</strong> (instantly updating the selection index and snapping the blue keyboard outline to the clicked row) and a <strong>deferred action</strong> (executing the load/navigation after the 250ms green flash), while keeping all row indices sequentially unique.
+                </p>
+            </div>
         </div>
     </section>
 

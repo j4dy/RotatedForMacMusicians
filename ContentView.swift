@@ -83,7 +83,11 @@ struct ContentView: View {
     }
 
     var returnToTabsIndex: Int? {
-        return showReturnToTabsRow ? (showGoUpRow ? 1 : 0) : nil
+        guard showReturnToTabsRow else { return nil }
+        var index = 0
+        if showGoUpRow { index += 1 }
+        if hasPrevPage { index += 1 }
+        return index
     }
 
     var goUpIndex: Int? {
@@ -93,8 +97,8 @@ struct ContentView: View {
     var fileIndexOffset: Int {
         var offset = 0
         if showGoUpRow { offset += 1 }
-        if showReturnToTabsRow { offset += 1 }
         if hasPrevPage { offset += 1 }
+        if showReturnToTabsRow { offset += 1 }
         return offset
     }
 
@@ -190,14 +194,15 @@ struct ContentView: View {
     }
 
     var prevPageIndex: Int? {
-        return hasPrevPage ? (showGoUpRow ? 1 : 0) : nil
+        guard hasPrevPage else { return nil }
+        var index = 0
+        if showGoUpRow { index += 1 }
+        return index
     }
 
     var nextPageIndex: Int? {
-        if hasNextPage {
-            return fileIndexOffset + pagedPDFFiles.count
-        }
-        return nil
+        guard hasNextPage else { return nil }
+        return fileIndexOffset + pagedPDFFiles.count
     }
 
     var pdfPageCounterText: String {
@@ -1086,12 +1091,14 @@ struct NativeClickOverlay: NSViewRepresentable {
 
 // MARK: - Clickable Row Wrapper with Visual Flash Feedback
 struct ClickableRowWrapper<Content: View>: View {
+    let immediateAction: () -> Void
     let action: () -> Void
     let content: Content
     
     @State private var isFlashing = false
     
-    init(action: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+    init(immediateAction: @escaping () -> Void = {}, action: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.immediateAction = immediateAction
         self.action = action
         self.content = content()
     }
@@ -1110,7 +1117,8 @@ struct ClickableRowWrapper<Content: View>: View {
             )
             .overlay(
                 NativeClickOverlay {
-                    print("[DEBUG] ClickableRowWrapper action triggered. Flashing green!")
+                    print("[DEBUG] ClickableRowWrapper clicked. Immediate action first!")
+                    immediateAction()
                     isFlashing = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                         isFlashing = false
@@ -1202,7 +1210,11 @@ struct DirectorySelectorView: View {
     let onBack: () -> Void
 
     var returnToTabsIndex: Int? {
-        return showReturnToTabsRow ? (showGoUpRow ? 1 : 0) : nil
+        guard showReturnToTabsRow else { return nil }
+        var index = 0
+        if showGoUpRow { index += 1 }
+        if hasPrevPage { index += 1 }
+        return index
     }
 
     var goUpIndex: Int? {
@@ -1212,20 +1224,21 @@ struct DirectorySelectorView: View {
     var fileIndexOffset: Int {
         var offset = 0
         if showGoUpRow { offset += 1 }
-        if showReturnToTabsRow { offset += 1 }
         if hasPrevPage { offset += 1 }
+        if showReturnToTabsRow { offset += 1 }
         return offset
     }
 
     var prevPageIndex: Int? {
-        return hasPrevPage ? (showGoUpRow ? 1 : 0) : nil
+        guard hasPrevPage else { return nil }
+        var index = 0
+        if showGoUpRow { index += 1 }
+        return index
     }
 
     var nextPageIndex: Int? {
-        if hasNextPage {
-            return fileIndexOffset + files.count
-        }
-        return nil
+        guard hasNextPage else { return nil }
+        return fileIndexOffset + files.count
     }
     
     var body: some View {
@@ -1288,10 +1301,10 @@ struct DirectorySelectorView: View {
                     VStack(spacing: 12) {
                         // Virtual Item: Go Up to Parent Directory (if showGoUpRow is true)
                         if showGoUpRow, let goUpIdx = goUpIndex {
-                            ClickableRowWrapper(action: {
-                                selectedIndex = goUpIdx
-                                onGoUp()
-                            }) {
+                            ClickableRowWrapper(
+                                immediateAction: { selectedIndex = goUpIdx },
+                                action: { onGoUp() }
+                            ) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
@@ -1327,10 +1340,10 @@ struct DirectorySelectorView: View {
 
                         // Previous Page Row (if hasPrevPage is true)
                         if hasPrevPage, let prevIndex = prevPageIndex {
-                            ClickableRowWrapper(action: {
-                                selectedIndex = prevIndex
-                                onPrevPage()
-                            }) {
+                            ClickableRowWrapper(
+                                immediateAction: { selectedIndex = prevIndex },
+                                action: { onPrevPage() }
+                            ) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
@@ -1366,10 +1379,10 @@ struct DirectorySelectorView: View {
 
                         // Virtual Item: Exit Arrow selection focus and return to Tab Navigation cycling (if showReturnToTabsRow is true)
                         if showReturnToTabsRow, let returnIdx = returnToTabsIndex {
-                            ClickableRowWrapper(action: {
-                                selectedIndex = returnIdx
-                                onBack()
-                            }) {
+                            ClickableRowWrapper(
+                                immediateAction: { selectedIndex = returnIdx },
+                                action: { onBack() }
+                            ) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
@@ -1416,10 +1429,10 @@ struct DirectorySelectorView: View {
                             let iconBgColor = selectedIndex == virtualIndex ? Color.blue.opacity(0.2) : (isDir ? Color.orange.opacity(0.15) : (isImg ? Color.purple.opacity(0.15) : Color.cyan.opacity(0.15)))
                             let fileDesc = isDir ? "Folder" : (isImg ? "Image (\(getFileSizeString(for: fileURL)))" : getFileSizeString(for: fileURL))
                             
-                            ClickableRowWrapper(action: {
-                                selectedIndex = virtualIndex
-                                onSelect(fileURL)
-                            }) {
+                            ClickableRowWrapper(
+                                immediateAction: { selectedIndex = virtualIndex },
+                                action: { onSelect(fileURL) }
+                            ) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
@@ -1463,10 +1476,10 @@ struct DirectorySelectorView: View {
 
                         // Next Page Row
                         if hasNextPage, let nextIndex = nextPageIndex {
-                            ClickableRowWrapper(action: {
-                                selectedIndex = nextIndex
-                                onNextPage()
-                            }) {
+                            ClickableRowWrapper(
+                                immediateAction: { selectedIndex = nextIndex },
+                                action: { onNextPage() }
+                            ) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 10)
