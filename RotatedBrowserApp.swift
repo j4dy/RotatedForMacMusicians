@@ -41,6 +41,8 @@ class RotatedWindow: NSWindow {
         super.noResponder(for: eventSelector)
     }
 
+
+
     override func sendEvent(_ event: NSEvent) {
         // Programmatic Warp Event Intercept: Ignore events synthesized by our own cursor warping to break the runaway feedback loop
         let currentPoint = NSEvent.mouseLocation
@@ -621,9 +623,13 @@ class RotatedContainerView: NSView {
         guard let target = window.findTargetView(in: self, physicalPoint: point) else {
             return nil
         }
-        let name = target.className
-        if name.contains("WK") || name.contains("PDF") || name.contains("Text") || name.contains("Field") || name.contains("Switch") {
-            return target
+        var current: NSView? = target
+        while let v = current {
+            let name = v.className
+            if name.contains("WK") || name.contains("PDF") || name.contains("Text") || name.contains("Field") || name.contains("Switch") || name.contains("Button") {
+                return target
+            }
+            current = v.superview
         }
         return self.subviews.first ?? target
     }
@@ -635,28 +641,28 @@ struct EventForwardingState {
 
 class RotatedHostingView<Content: View>: NSHostingView<Content> {
     override func convert(_ point: NSPoint, from view: NSView?) -> NSPoint {
-        if EventForwardingState.isForwardingEvent {
+        if EventForwardingState.isForwardingEvent && view == nil {
             return point
         }
         return super.convert(point, from: view)
     }
 
     override func convert(_ point: NSPoint, to view: NSView?) -> NSPoint {
-        if EventForwardingState.isForwardingEvent {
+        if EventForwardingState.isForwardingEvent && view == nil {
             return point
         }
         return super.convert(point, to: view)
     }
 
     override func convert(_ rect: NSRect, from view: NSView?) -> NSRect {
-        if EventForwardingState.isForwardingEvent {
+        if EventForwardingState.isForwardingEvent && view == nil {
             return rect
         }
         return super.convert(rect, from: view)
     }
 
     override func convert(_ rect: NSRect, to view: NSView?) -> NSRect {
-        if EventForwardingState.isForwardingEvent {
+        if EventForwardingState.isForwardingEvent && view == nil {
             return rect
         }
         return super.convert(rect, to: view)

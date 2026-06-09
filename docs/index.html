@@ -670,6 +670,34 @@
         </div>
     </section>
 
+    <!-- Hard Part of Programming Section -->
+    <section id="hard-part-section" style="padding: 100px 40px; max-width: 1200px; margin: 0 auto; border-top: 1px solid var(--card-border);">
+        <div class="section-header">
+            <h2 class="section-title">The Hard Part of Programming: Event Coordinates Under Rotation</h2>
+            <p class="section-subtitle">Bridging declarative layout systems with low-level window coordinate conversion matrices.</p>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; align-items: start;">
+            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
+                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">Why SwiftUI Gestures Failed</h3>
+                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.6;">
+                    In AppKit, visual layout rotation is achieved using <code>frameCenterRotation</code>. However, SwiftUI's custom gesture engine processes coordinate movements internally during active drag-and-release loops.
+                </p>
+                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
+                    When dragging or releasing a mouse click, SwiftUI's tracking engine fails to map coordinates through the <code>frameCenterRotation</code> transform matrix. This mismatch makes the engine treat mouse-up coordinates as physical screen values, thinking the user dragged away and released elsewhere. The button gesture is immediately cancelled.
+                </p>
+            </div>
+            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
+                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">The Native Solution</h3>
+                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.6;">
+                    Instead of fighting the declarative coordinate tracking system, we wrapped native Cocoa <code>NSButton</code> views using <code>NSViewRepresentable</code>.
+                </p>
+                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
+                    By tweaking the window's <code>hitTest(_:)</code> implementation to check the target leaf control and its ancestral tree for <code>"Button"</code>, physical events are routed directly to the native control. The native button handles its own drag-tracking loops natively, firing the actions perfectly every time.
+                </p>
+            </div>
+        </div>
+    </section>
+
     <!-- Quickstart Guide Section -->
     <section id="setup-section">
         <div class="setup-container">

@@ -747,27 +747,10 @@ struct SettingsView: View {
                                 .focused($isURLFocused)
                                 .focusEffectDisabled()
                             
-                            Button(action: {
+                            NativeButton(title: "Refresh", shortcut: "⌥ R", systemImageName: "arrow.clockwise") {
                                 onRefreshBrowser()
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "arrow.clockwise")
-                                        .font(.system(size: 12, weight: .bold))
-                                    Text("Refresh")
-                                    Text("⌥ R")
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.white.opacity(0.2))
-                                        .cornerRadius(4)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 5)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
                             }
-                            .buttonStyle(.plain)
+                            .fixedSize()
                         }
                         
                         Divider()
@@ -828,25 +811,10 @@ struct SettingsView: View {
                                 .focused($isPDFFocused)
                                 .focusEffectDisabled()
                             
-                            Button(action: {
+                            NativeButton(title: "Browse...", shortcut: "⌥ O", systemImageName: nil) {
                                 selectPDFFile()
-                            }) {
-                                HStack(spacing: 6) {
-                                    Text("Browse...")
-                                    Text("⌥ O")
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.white.opacity(0.2))
-                                        .cornerRadius(4)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 5)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
                             }
-                            .buttonStyle(.plain)
+                            .fixedSize()
                         }
                     }
                 }
@@ -951,6 +919,135 @@ struct SettingsView: View {
             if let fileURL = openPanel.url {
                 defaultPDFLocation = fileURL.path
             }
+        }
+    }
+}
+
+// MARK: - Premium Native AppKit Button Wrapper
+class PremiumNSButton: NSButton {
+    override var intrinsicContentSize: NSSize {
+        if let container = self.subviews.first(where: { $0 is NSStackView }) as? NSStackView {
+            let size = container.fittingSize
+            return NSSize(width: size.width + 24, height: 32)
+        }
+        return super.intrinsicContentSize
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        self.layer?.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.7).cgColor
+        super.mouseDown(with: event)
+        self.layer?.backgroundColor = NSColor.systemBlue.cgColor
+    }
+    
+    private var trackingArea: NSTrackingArea?
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            self.removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: self.bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            owner: self,
+            userInfo: nil
+        )
+        self.addTrackingArea(area)
+        self.trackingArea = area
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        self.layer?.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.9).cgColor
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        self.layer?.backgroundColor = NSColor.systemBlue.cgColor
+    }
+}
+
+struct NativeButton: NSViewRepresentable {
+    let title: String
+    let shortcut: String?
+    let systemImageName: String?
+    let action: () -> Void
+    
+    func makeNSView(context: Context) -> NSButton {
+        let button = PremiumNSButton(title: "", target: context.coordinator, action: #selector(Coordinator.buttonClicked))
+        button.bezelStyle = .rounded
+        button.wantsLayer = true
+        button.isBordered = false
+        button.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        button.layer?.cornerRadius = 6
+        
+        let container = NSStackView()
+        container.orientation = .horizontal
+        container.spacing = 6
+        container.alignment = .centerY
+        container.translatesAutoresizingMaskIntoConstraints = false
+        
+        if let imageName = systemImageName, let image = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
+            let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+            let configuredImage = image.withSymbolConfiguration(config) ?? image
+            let imageView = NSImageView(image: configuredImage)
+            imageView.contentTintColor = NSColor.white
+            container.addArrangedSubview(imageView)
+        }
+        
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.textColor = .white
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        container.addArrangedSubview(titleLabel)
+        
+        if let badge = shortcut {
+            let badgeLabel = NSTextField(labelWithString: badge)
+            badgeLabel.textColor = .white
+            badgeLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .bold)
+            badgeLabel.drawsBackground = false
+            
+            let badgeContainer = NSView()
+            badgeContainer.wantsLayer = true
+            badgeContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.2).cgColor
+            badgeContainer.layer?.cornerRadius = 4
+            badgeContainer.addSubview(badgeLabel)
+            
+            badgeLabel.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                badgeLabel.leadingAnchor.constraint(equalTo: badgeContainer.leadingAnchor, constant: 6),
+                badgeLabel.trailingAnchor.constraint(equalTo: badgeContainer.trailingAnchor, constant: -6),
+                badgeLabel.topAnchor.constraint(equalTo: badgeContainer.topAnchor, constant: 2),
+                badgeLabel.bottomAnchor.constraint(equalTo: badgeContainer.bottomAnchor, constant: -2),
+            ])
+            container.addArrangedSubview(badgeContainer)
+        }
+        
+        button.addSubview(container)
+        NSLayoutConstraint.activate([
+            container.centerXAnchor.constraint(equalTo: button.centerXAnchor),
+            container.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            container.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
+            container.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -12),
+            container.topAnchor.constraint(equalTo: button.topAnchor, constant: 5),
+            container.bottomAnchor.constraint(equalTo: button.bottomAnchor, constant: -5),
+        ])
+        
+        return button
+    }
+    
+    func updateNSView(_ nsView: NSButton, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(action: action)
+    }
+    
+    class Coordinator: NSObject {
+        let action: () -> Void
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+        @objc func buttonClicked() {
+            action()
         }
     }
 }
