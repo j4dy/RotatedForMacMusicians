@@ -558,6 +558,10 @@ class RotatedWindow: NSWindow {
                 NotificationCenter.default.post(name: NSNotification.Name("ToggleAdBlocker"), object: nil)
                 return
             }
+            if mods.contains(.option) && event.charactersIgnoringModifiers?.lowercased() == "s" {
+                NotificationCenter.default.post(name: NSNotification.Name("ToggleScanningMode"), object: nil)
+                return
+            }
         }
         
         // Keyboard passthrough to ensure WKWebView gets the events directly when rotated
