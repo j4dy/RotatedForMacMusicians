@@ -566,7 +566,7 @@
                 🔒 <strong>macOS Security Note:</strong> If macOS reports the downloaded app is "damaged" or cannot be opened, you can fix it in 5 seconds. Right-click the app and choose **Open**, or run `xattr -cr /Applications/RotatedBrowserApp.app` in your Terminal to clear the download quarantine.
             </p>
             <div class="cta-group" style="flex-wrap: wrap;">
-                <a href="https://github.com/j4dy/RotatedForMacMusicians/releases/download/v0.1.0-beta/RotatedBrowserApp.dmg" class="primary-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);" id="hero-download-btn">Download .dmg</a>
+                <a href="https://github.com/j4dy/RotatedForMacMusicians/releases/download/v0.2.0-beta/RotatedBrowserApp.dmg" class="primary-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);" id="hero-download-btn">Download .dmg</a>
                 <a href="#setup-section" class="primary-btn" style="background: var(--gradient);" id="hero-cta-btn">Quickstart Guide</a>
                 <a href="https://github.com/j4dy/RotatedForMacMusicians/issues" target="_blank" class="github-btn" style="padding: 12px 24px; display: flex; align-items: center;" id="hero-feedback-btn">Give Feedback</a>
             </div>
@@ -758,7 +758,7 @@ cd RotatedForMacMusicians</pre>
 
             <div class="setup-step">
                 <h3><span class="step-number">2</span> Compile Natively</h3>
-                <pre class="code-block">swiftc RotatedBrowserApp.swift ContentView.swift WebView.swift PDFViewWrapper.swift -o net.j4dy.RotatedBrowserApp</pre>
+                <pre class="code-block">swiftc RotatedBrowserApp.swift ContentView.swift WebView.swift PDFViewWrapper.swift Analytics.swift -o net.j4dy.RotatedBrowserApp</pre>
             </div>
 
             <div class="setup-step">
