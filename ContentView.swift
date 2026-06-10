@@ -6,6 +6,12 @@ fileprivate func isDirectory(_ url: URL) -> Bool {
     return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
 }
 
+enum ScanState {
+    case stopped
+    case horizontal
+    case vertical
+}
+
 struct ActiveTabState {
     static var selectedTab: Int = 0
     static var isSelectorModeActive: Bool = true
@@ -27,7 +33,7 @@ struct ContentView: View {
     @AppStorage("isAdBlockerEnabled") private var isAdBlockerEnabled: Bool = false
     @AppStorage("browserCursorSize") private var browserCursorSize: Double = 80.0
     @AppStorage("isTwoButtonScanningEnabled") private var isTwoButtonScanningEnabled: Bool = false
-    @State private var scanningState: Int = 0 // 0 = Horizontal, 1 = Vertical
+    @State private var scanState: ScanState = .horizontal
     private let scanningTimer = Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()
     
     @State private var browserCursorX: CGFloat = 400
@@ -689,7 +695,7 @@ struct ContentView: View {
                 isArrowNavigationLocked = true
                 browserCursorX = browserViewportSize.width / 2
                 browserCursorY = browserViewportSize.height / 2
-                scanningState = 0
+                scanState = .horizontal
                 print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
             }
         }
@@ -697,12 +703,12 @@ struct ContentView: View {
             guard isBrowserArrowNavigationActive && isTwoButtonScanningEnabled else { return }
             guard browserViewportSize.width > 0 && browserViewportSize.height > 0 else { return }
             let speed: CGFloat = 8.0
-            if scanningState == 0 {
+            if scanState == .horizontal {
                 browserCursorX += speed
                 if browserCursorX > browserViewportSize.width {
                     browserCursorX = 0
                 }
-            } else {
+            } else if scanState == .vertical {
                 browserCursorY += speed
                 if browserCursorY > browserViewportSize.height {
                     browserCursorY = 0
@@ -712,9 +718,8 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
                 if isTwoButtonScanningEnabled {
-                    print("[DEBUG] 2-Button Scan: Click triggered at \(browserCursorX), \(browserCursorY)")
-                    WebViewStore.performClick(at: CGPoint(x: browserCursorX, y: browserCursorY))
-                    scanningState = 0
+                    scanState = .stopped
+                    print("[DEBUG] Scanning Mode: Stopped scan at \(browserCursorX), \(browserCursorY)")
                 } else {
                     browserCursorX = max(browserCursorX - 25, 0)
                     print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
@@ -724,8 +729,13 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
                 if isTwoButtonScanningEnabled {
-                    scanningState = (scanningState == 0) ? 1 : 0
-                    print("[DEBUG] 2-Button Scan: Toggled axis to \(scanningState == 0 ? "Horizontal" : "Vertical")")
+                    if scanState == .stopped || scanState == .horizontal {
+                        scanState = .vertical
+                        print("[DEBUG] Scanning Mode: Toggled to Vertical scan")
+                    } else {
+                        scanState = .horizontal
+                        print("[DEBUG] Scanning Mode: Toggled to Horizontal scan")
+                    }
                 } else {
                     browserCursorX = min(browserCursorX + 25, browserViewportSize.width)
                     print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
@@ -752,6 +762,10 @@ struct ContentView: View {
             if selectedTab == 0 && isBrowserArrowNavigationActive {
                 print("[DEBUG] Dispatching click event to WebView at: \(browserCursorX), \(browserCursorY)")
                 WebViewStore.performClick(at: CGPoint(x: browserCursorX, y: browserCursorY))
+                if isTwoButtonScanningEnabled {
+                    scanState = .horizontal
+                    print("[DEBUG] Scanning Mode: Clicked, resetting to Horizontal scan")
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserExitArrowNavigation"))) { _ in
@@ -1053,9 +1067,9 @@ struct SettingsView: View {
                         HStack {
                             Toggle(isOn: $isTwoButtonScanningEnabled) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("2-Button Scanning Mode")
+                                    Text("Scanning Mode")
                                         .font(.system(size: 16, weight: .semibold))
-                                    Text("Automatically sweep cursor. Right arrow switches axis (X/Y), Left arrow clicks.")
+                                    Text("Automatically sweep cursor. Right arrow toggles horizontal/vertical scan, Left arrow stops scan, Enter clicks.")
                                         .font(.system(size: 12))
                                         .foregroundColor(.secondary)
                                 }
