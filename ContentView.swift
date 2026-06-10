@@ -42,13 +42,10 @@ struct ContentView: View {
     
     // States for button double-press line navigation
     @State private var lastLeftClickTime: Date = .distantPast
-    @State private var lastRightClickTime: Date = .distantPast
     @State private var preLeftCursorX: CGFloat = 400
     @State private var preLeftCursorY: CGFloat = 300
     @State private var leftWrapped: Bool = false
-    @State private var preRightCursorX: CGFloat = 400
-    @State private var preRightCursorY: CGFloat = 300
-    @State private var rightWrapped: Bool = false
+    @State private var isArrowNavigationVertical: Bool = false
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -694,6 +691,7 @@ struct ContentView: View {
                 isArrowNavigationLocked = true
                 browserCursorX = browserViewportSize.width / 2
                 browserCursorY = browserViewportSize.height / 2
+                isArrowNavigationVertical = false // start in horizontal direction by default
                 print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
             }
         }
@@ -703,16 +701,23 @@ struct ContentView: View {
                 let now = Date()
                 
                 if !isRepeat && now.timeIntervalSince(lastLeftClickTime) < 0.25 {
-                    // Double Click detected! Restore X to pre-move position, and adjust Y to move up 1 line
-                    browserCursorX = preLeftCursorX
-                    if leftWrapped {
-                        // Y was already decremented by the first click's wrap, so we do not decrement again.
-                        browserCursorY = browserCursorY
+                    // Double Click detected!
+                    // Toggle the arrow key direction between horizontal and vertical
+                    isArrowNavigationVertical.toggle()
+                    
+                    // Revert the cursor movement caused by the first click of this double-click sequence
+                    if isArrowNavigationVertical {
+                        // First click happened when direction was HORIZONTAL, so it moved left by 25px
+                        browserCursorX = preLeftCursorX
+                        if leftWrapped {
+                            browserCursorY = preLeftCursorY
+                        }
                     } else {
-                        // Y was not decremented, so we decrement Y by 1 line now
-                        browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
+                        // First click happened when direction was VERTICAL, so it moved up by 25px
+                        browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
                     }
-                    print("[DEBUG] Double Click Left: Y moved up to \(browserCursorY), X restored to \(browserCursorX)")
+                    
+                    print("[DEBUG] Double Click Left: Toggled direction. isArrowNavigationVertical = \(isArrowNavigationVertical), position reverted.")
                     lastLeftClickTime = .distantPast
                 } else {
                     // Single Click (or repeat)
@@ -722,51 +727,40 @@ struct ContentView: View {
                         preLeftCursorY = browserCursorY
                     }
                     
-                    if browserCursorX - 25 < 0 {
-                        if !isRepeat { leftWrapped = true }
-                        browserCursorX = browserViewportSize.width
-                        browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
-                        print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
+                    if isArrowNavigationVertical {
+                        // L button functions as UP key in vertical mode
+                        browserCursorY = max(browserCursorY - 25, 0)
+                        print("[DEBUG] Cursor Move Up (L-button): \(browserCursorX), \(browserCursorY)")
                     } else {
-                        if !isRepeat { leftWrapped = false }
-                        browserCursorX -= 25
-                        print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                        // L button functions as LEFT key in horizontal mode
+                        if browserCursorX - 25 < 0 {
+                            if !isRepeat { leftWrapped = true }
+                            browserCursorX = browserViewportSize.width
+                            browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
+                            print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
+                        } else {
+                            if !isRepeat { leftWrapped = false }
+                            browserCursorX -= 25
+                            print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                        }
                     }
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { notification in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                let isRepeat = notification.object as? Bool ?? false
-                let now = Date()
-                
-                if !isRepeat && now.timeIntervalSince(lastRightClickTime) < 0.25 {
-                    // Double Click detected! Restore X to pre-move position, and adjust Y to move down 1 line
-                    browserCursorX = preRightCursorX
-                    if rightWrapped {
-                        // Y was already incremented by the first click's wrap, so we do not increment again
-                        browserCursorY = browserCursorY
-                    } else {
-                        // Y was not incremented, so we increment Y by 1 line now
-                        browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
-                    }
-                    print("[DEBUG] Double Click Right: Y moved down to \(browserCursorY), X restored to \(browserCursorX)")
-                    lastRightClickTime = .distantPast
+                // Double-click on Right button is cancelled. It functions as a standard click.
+                if isArrowNavigationVertical {
+                    // R button functions as DOWN key in vertical mode
+                    browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
+                    print("[DEBUG] Cursor Move Down (R-button): \(browserCursorX), \(browserCursorY)")
                 } else {
-                    // Single Click (or repeat)
-                    if !isRepeat {
-                        lastRightClickTime = now
-                        preRightCursorX = browserCursorX
-                        preRightCursorY = browserCursorY
-                    }
-                    
+                    // R button functions as RIGHT key in horizontal mode
                     if browserCursorX + 25 > browserViewportSize.width {
-                        if !isRepeat { rightWrapped = true }
                         browserCursorX = 0
                         browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
                         print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
                     } else {
-                        if !isRepeat { rightWrapped = false }
                         browserCursorX += 25
                         print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
                     }
@@ -796,6 +790,7 @@ struct ContentView: View {
                 isBrowserArrowNavigationActive = false
                 ActiveTabState.isArrowNavigationActive = false
                 isArrowNavigationLocked = false
+                isArrowNavigationVertical = false // reset direction to default (horizontal)
                 print("[DEBUG] Exited browser arrow navigation via notification")
             }
         }
