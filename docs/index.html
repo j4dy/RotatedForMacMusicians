@@ -705,6 +705,38 @@
                 </p>
             </div>
         </div>
+        <div style="margin-top: 50px; background: var(--card-bg); border: 1px solid var(--card-border); padding: 40px; border-radius: 16px; box-shadow: var(--glow); overflow-x: auto;">
+            <h3 style="font-size: 1.4rem; margin-bottom: 25px; color: var(--accent); text-align: center;">Visual Event Flow & Coordinate Mismatch</h3>
+            <div class="mermaid" style="display: flex; justify-content: center; background: transparent;">
+                graph TD
+                    subgraph Physical Screen Space
+                        A[Physical Click: Mouse Down at X, Y] --> B[Mouse Drag/Hold]
+                        B --> C[Physical Release: Mouse Up at X, Y]
+                    end
+
+                    subgraph AppKit Window Space (Rotated -90°)
+                        D[Window intercepts Event]
+                        D --> E[Correctly Translated Coordinates]
+                    end
+
+                    subgraph SwiftUI Gesture Engine (Failure Path)
+                        E --> F[SwiftUI Button: Pressed State]
+                        C --> G[SwiftUI Gesture Tracker]
+                        G --> H[FAIL: Does not apply Rotation Matrix to Mouse Up]
+                        H --> I[Cancels Gesture / Button Click fails]
+                    end
+
+                    subgraph Native AppKit Event Routing (Success Path)
+                        D --> J{Is leaf view an NSButton?}
+                        J -->|Yes| K[Forward raw event directly to NSButton]
+                        K --> L[Native Cocoa tracking loop handles drag/release]
+                        L -->|SUCCESS| M[Action Triggered instantly and reliably]
+                    end
+
+                    style G fill:#7f1d1d,stroke:#f87171,color:#fee2e2
+                    style L fill:#064e3b,stroke:#34d399,color:#d1fae5
+            </div>
+        </div>
     </section>
 
     <!-- Quickstart Guide Section -->
@@ -754,6 +786,21 @@ cd RotatedForMacMusicians</pre>
                 btn.textContent = "Simulate Monitor Rotation";
             }
         }
+    </script>
+    <!-- Mermaid.js for Rendering Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            securityLevel: 'loose',
+            themeVariables: {
+                background: '#14182e',
+                primaryColor: '#3b82f6',
+                primaryTextColor: '#f3f4f6',
+                lineColor: '#38bdf8'
+            }
+        });
     </script>
 </body>
 </html>
