@@ -323,14 +323,19 @@ struct ContentView: View {
                                          Spacer()
                                          HStack {
                                              Spacer()
-                                             HStack(spacing: 8) {
-                                                 Image(systemName: "info.circle.fill")
-                                                     .foregroundColor(.white)
-                                                 Text("Hold left and right arrow buttons for 3s to exit browsing")
-                                                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                     .foregroundColor(.white)
-                                             }
-                                             .padding(.horizontal, 16)
+                                              VStack(spacing: 6) {
+                                                  HStack(spacing: 8) {
+                                                      Image(systemName: "info.circle.fill")
+                                                          .foregroundColor(.white)
+                                                      Text("Hold left and right arrow buttons for 3s to exit browsing")
+                                                          .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                          .foregroundColor(.white)
+                                                  }
+                                                  Text("Double-click on left key to toggle arrow moving vertically or horizontally")
+                                                      .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                      .foregroundColor(.white.opacity(0.95))
+                                              }
+                                              .padding(.horizontal, 18)
                                              .padding(.vertical, 10)
                                              .background(Color.orange.opacity(0.85))
                                              .cornerRadius(20)
