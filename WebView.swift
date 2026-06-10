@@ -35,6 +35,10 @@ class FocusableWebView: WKWebView {
     }
     
     override func mouseDown(with event: NSEvent) {
+        if WebViewStore.isProgrammaticClick {
+            super.mouseDown(with: event)
+            return
+        }
         print("WebView clicked - forcing focus")
         self.window?.makeKeyAndOrderFront(nil)
         let success = self.window?.makeFirstResponder(self) ?? false
@@ -52,6 +56,7 @@ class FocusableWebView: WKWebView {
 class WebViewStore {
     static let sharedWebView = FocusableWebView()
     static var coordinator: WebView.Coordinator?
+    static var isProgrammaticClick = false
     
     static func updateAdBlockerState() {
         let isEnabled = UserDefaults.standard.bool(forKey: "isAdBlockerEnabled")
@@ -96,6 +101,71 @@ class WebViewStore {
             }
         } else {
             print("Ad Blocker rules removed.")
+        }
+    }
+
+    static func performClick(at point: CGPoint) {
+        let webView = sharedWebView
+        DispatchQueue.main.async {
+            guard let win = webView.window else {
+                print("[DEBUG] WebView has no window; ignoring click.")
+                return
+            }
+            isProgrammaticClick = true
+            defer { isProgrammaticClick = false }
+            
+            let bounds = webView.bounds
+            // Convert top-left SwiftUI coordinates to bottom-left AppKit coordinates
+            let appKitPoint = NSPoint(x: point.x, y: bounds.height - point.y)
+            
+            let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
+            let winWidth = win.frame.width
+            let winHeight = win.frame.height
+            let isFullScreen = win.styleMask.contains(.fullScreen)
+            let titleBarHeight: CGFloat = isFullScreen ? 0 : 28
+            
+            let px: CGFloat
+            let py: CGFloat
+            
+            if isLeft {
+                py = appKitPoint.x
+                px = winWidth - appKitPoint.y
+            } else {
+                px = appKitPoint.y
+                py = (winHeight - titleBarHeight) - appKitPoint.x
+            }
+            
+            let windowPoint = NSPoint(x: px, y: py)
+            
+            let downEvent = NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: windowPoint,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: win.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1.0
+            )
+            
+            let upEvent = NSEvent.mouseEvent(
+                with: .leftMouseUp,
+                location: windowPoint,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: win.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 0.0
+            )
+            
+            if let down = downEvent, let up = upEvent {
+                win.sendEvent(down)
+                win.sendEvent(up)
+                print("[DEBUG] Programmatic click successfully dispatched via window.sendEvent at: \(point) (AppKit: \(appKitPoint), windowPoint: \(windowPoint))")
+            }
         }
     }
 }

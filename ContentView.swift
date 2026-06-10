@@ -25,6 +25,11 @@ struct ContentView: View {
     @AppStorage("isRotatedMouseEnabled") private var isRotatedMouseEnabled: Bool = false
     @AppStorage("isRotateLeftEnabled") private var isRotateLeftEnabled: Bool = false
     @AppStorage("isAdBlockerEnabled") private var isAdBlockerEnabled: Bool = false
+    @AppStorage("browserCursorSize") private var browserCursorSize: Double = 80.0
+    
+    @State private var browserCursorX: CGFloat = 400
+    @State private var browserCursorY: CGFloat = 300
+    @State private var browserViewportSize: CGSize = CGSize(width: 800, height: 600)
     
     @State private var selectedPDFFileURL: URL? = nil
     @State private var currentDirectoryURL: URL? = nil
@@ -34,6 +39,7 @@ struct ContentView: View {
     let pdfPageSize = 12
     @State private var isBrowserLoading = false
     @State private var isBrowserArrowNavigationActive = false
+    @State private var isArrowNavigationLocked = false
     
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
@@ -254,55 +260,90 @@ struct ContentView: View {
                 ZStack {
                     if selectedTab == 0 {
                         // Tab 0: Browser View
-                        ZStack {
-                            WebView(url: parsedURL, isLoading: $isBrowserLoading)
-                                .id("tab-0")
-                            
-                            if isBrowserLoading {
-                                ZStack {
-                                    Color.black.opacity(0.3)
-                                    VStack(spacing: 16) {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .scaleEffect(1.5)
-                                        Text("Loading Page...")
-                                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                                            .foregroundColor(.white)
+                        GeometryReader { geo in
+                            ZStack(alignment: .topLeading) {
+                                WebView(url: parsedURL, isLoading: $isBrowserLoading)
+                                    .id("tab-0")
+                                    .onChange(of: geo.size) { oldSize, newSize in
+                                        browserViewportSize = newSize
+                                        print("[DEBUG] Viewport resized: \(newSize.width)x\(newSize.height)")
                                     }
-                                    .padding(24)
-                                    .background(Color.black.opacity(0.75))
-                                    .cornerRadius(16)
+                                    .onAppear {
+                                        browserViewportSize = geo.size
+                                    }
+                                
+                                // Glowing Focus Cursor Box Overlay
+                                if isBrowserArrowNavigationActive {
+                                    ZStack {
+                                        // Thicker outer neon border with bright neon color
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.red, lineWidth: 5)
+                                            .background(Color.yellow.opacity(0.18))
+                                        
+                                        // Inner crosshair or center dot
+                                        Circle()
+                                            .fill(Color.red)
+                                            .frame(width: 12, height: 12)
+                                            .shadow(color: .white, radius: 2)
+                                    }
+                                    .frame(width: CGFloat(browserCursorSize), height: CGFloat(browserCursorSize))
+                                    .position(x: browserCursorX, y: browserCursorY)
+                                    .shadow(color: Color.red.opacity(0.85), radius: 12)
+                                    .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserCursorX)
+                                    .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserCursorY)
+                                    .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserViewportSize)
                                 }
-                            }
-                            
-                            if isBrowserArrowNavigationActive {
-                                VStack {
-                                    Spacer()
-                                    HStack {
-                                        Spacer()
-                                        Button(action: {
-                                            isBrowserArrowNavigationActive = false
-                                            ActiveTabState.isArrowNavigationActive = false
-                                            print("Exit Browser Mode clicked: arrow navigation disabled")
-                                        }) {
-                                            HStack(spacing: 8) {
-                                                Image(systemName: "arrow.left.circle.fill")
-                                                    .font(.system(size: 16, weight: .bold))
-                                                Text("Exit Browser Mode")
-                                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                            }
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 10)
-                                            .background(Color.red.opacity(0.9))
-                                            .foregroundColor(.white)
-                                            .cornerRadius(20)
-                                            .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
+                                
+                                if isBrowserLoading {
+                                    ZStack {
+                                        Color.black.opacity(0.3)
+                                        VStack(spacing: 16) {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(1.5)
+                                            Text("Loading Page...")
+                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                .foregroundColor(.white)
                                         }
-                                        .buttonStyle(.plain)
-                                        .padding(.trailing, 24)
-                                        .padding(.bottom, 24)
+                                        .padding(24)
+                                        .background(Color.black.opacity(0.75))
+                                        .cornerRadius(16)
                                     }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
+                                
+                                if isBrowserArrowNavigationActive {
+                                     VStack {
+                                         Spacer()
+                                         HStack {
+                                             Spacer()
+                                             HStack(spacing: 8) {
+                                                 Image(systemName: "info.circle.fill")
+                                                     .foregroundColor(.white)
+                                                 Text("Hold left and right arrow buttons for 3s to exit browsing")
+                                                     .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                     .foregroundColor(.white)
+                                             }
+                                             .padding(.horizontal, 16)
+                                             .padding(.vertical, 10)
+                                             .background(Color.orange.opacity(0.85))
+                                             .cornerRadius(20)
+                                             .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
+                                             Spacer()
+                                         }
+                                         .frame(maxWidth: .infinity)
+                                         .padding(.bottom, 24)
+                                     }
+                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                 }
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            self.lastClick = location
+                            print("Detected Tap at: \(location)")
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                if self.lastClick == location { self.lastClick = .zero }
                             }
                         }
                     } else if selectedTab == 1 {
@@ -390,6 +431,7 @@ struct ContentView: View {
                                     folderPath: resolvedCurrentDirectoryURL.path,
                                     files: pagedPDFFiles,
                                     selectedIndex: $directorySelectedIndex,
+                                    isArrowNavigationLocked: $isArrowNavigationLocked,
                                     hasPrevPage: hasPrevPage,
                                     hasNextPage: hasNextPage,
                                     totalPages: totalPages,
@@ -417,6 +459,7 @@ struct ContentView: View {
                                     },
                                     onBack: {
                                         ActiveTabState.isArrowNavigationActive = false
+                                        isArrowNavigationLocked = false
                                         print("Back selected: Returned arrow keys focus to tab cycling")
                                     }
                                 )
@@ -424,6 +467,14 @@ struct ContentView: View {
                             }
                         }
                         .id("tab-1")
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            self.lastClick = location
+                            print("Detected Tap at: \(location)")
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                if self.lastClick == location { self.lastClick = .zero }
+                            }
+                        }
                     } else {
                         // Tab 2: Settings View
                         SettingsView(
@@ -432,6 +483,7 @@ struct ContentView: View {
                             isRotatedMouseEnabled: $isRotatedMouseEnabled,
                             isRotateLeftEnabled: $isRotateLeftEnabled,
                             isAdBlockerEnabled: $isAdBlockerEnabled,
+                            browserCursorSize: $browserCursorSize,
                             onRefreshBrowser: {
                                 refreshBrowserWithNewURL()
                             }
@@ -450,11 +502,18 @@ struct ContentView: View {
                         selectedTab = 0 
                         print("Switched to Browser")
                     }) {
-                        Text("Browser (⌘1)")
+                        Text(selectedTab == 0 && !isArrowNavigationLocked ? "◀️ Browser (⌘1) ▶️" : "Browser (⌘1)")
+                            .font(.system(size: 14, weight: (selectedTab == 0 && !isArrowNavigationLocked) ? .bold : .medium))
+                            .foregroundColor((selectedTab == 0 && !isArrowNavigationLocked) ? .black : .primary)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(selectedTab == 0 ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                            .background(selectedTab == 0 ? (isArrowNavigationLocked ? Color.blue.opacity(0.3) : Color.yellow.opacity(0.85)) : Color.gray.opacity(0.1))
                             .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke((selectedTab == 0 && !isArrowNavigationLocked) ? Color.orange : Color.clear, lineWidth: (selectedTab == 0 && !isArrowNavigationLocked) ? 4 : 0)
+                            )
+                            .shadow(color: (selectedTab == 0 && !isArrowNavigationLocked) ? Color.orange.opacity(0.6) : Color.clear, radius: 8)
                     }
                     .buttonStyle(.plain)
                     
@@ -463,11 +522,18 @@ struct ContentView: View {
                         selectedTab = 1 
                         print("Switched to PDF")
                     }) {
-                        Text("PDF / images (⌘2)")
+                        Text(selectedTab == 1 && !isArrowNavigationLocked ? "◀️ PDF / images (⌘2) ▶️" : "PDF / images (⌘2)")
+                            .font(.system(size: 14, weight: (selectedTab == 1 && !isArrowNavigationLocked) ? .bold : .medium))
+                            .foregroundColor((selectedTab == 1 && !isArrowNavigationLocked) ? .black : .primary)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(selectedTab == 1 ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                            .background(selectedTab == 1 ? (isArrowNavigationLocked ? Color.blue.opacity(0.3) : Color.yellow.opacity(0.85)) : Color.gray.opacity(0.1))
                             .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke((selectedTab == 1 && !isArrowNavigationLocked) ? Color.orange : Color.clear, lineWidth: (selectedTab == 1 && !isArrowNavigationLocked) ? 4 : 0)
+                            )
+                            .shadow(color: (selectedTab == 1 && !isArrowNavigationLocked) ? Color.orange.opacity(0.6) : Color.clear, radius: 8)
                     }
                     .buttonStyle(.plain)
                     
@@ -476,11 +542,18 @@ struct ContentView: View {
                         selectedTab = 2 
                         print("Switched to Setting")
                     }) {
-                        Text("Setting (⌘3)")
+                        Text(selectedTab == 2 && !isArrowNavigationLocked ? "◀️ Setting (⌘3) ▶️" : "Setting (⌘3)")
+                            .font(.system(size: 14, weight: (selectedTab == 2 && !isArrowNavigationLocked) ? .bold : .medium))
+                            .foregroundColor((selectedTab == 2 && !isArrowNavigationLocked) ? .black : .primary)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(selectedTab == 2 ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                            .background(selectedTab == 2 ? Color.yellow.opacity(0.85) : Color.gray.opacity(0.1))
                             .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke((selectedTab == 2 && !isArrowNavigationLocked) ? Color.orange : Color.clear, lineWidth: (selectedTab == 2 && !isArrowNavigationLocked) ? 4 : 0)
+                            )
+                            .shadow(color: (selectedTab == 2 && !isArrowNavigationLocked) ? Color.orange.opacity(0.6) : Color.clear, radius: 8)
                     }
                     .buttonStyle(.plain)
                 }
@@ -609,16 +682,48 @@ struct ContentView: View {
             if selectedTab == 0 {
                 isBrowserArrowNavigationActive = true
                 ActiveTabState.isArrowNavigationActive = true
-                print("Switched browser arrow navigation active: true")
-                NotificationCenter.default.post(name: NSNotification.Name("FocusBrowserWebView"), object: nil)
+                isArrowNavigationLocked = true
+                browserCursorX = browserViewportSize.width / 2
+                browserCursorY = browserViewportSize.height / 2
+                print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { location in
-            self.lastClick = location
-            print("Detected Tap at: \(location)")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                if self.lastClick == location { self.lastClick = .zero }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { _ in
+            if selectedTab == 0 && isBrowserArrowNavigationActive {
+                browserCursorX = max(browserCursorX - 25, 0)
+                print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { _ in
+            if selectedTab == 0 && isBrowserArrowNavigationActive {
+                browserCursorX = min(browserCursorX + 25, browserViewportSize.width)
+                print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveUp"))) { _ in
+            if selectedTab == 0 && isBrowserArrowNavigationActive {
+                browserCursorY = max(browserCursorY - 25, 0)
+                print("[DEBUG] Cursor Move Up: \(browserCursorX), \(browserCursorY)")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveDown"))) { _ in
+            if selectedTab == 0 && isBrowserArrowNavigationActive {
+                browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
+                print("[DEBUG] Cursor Move Down: \(browserCursorX), \(browserCursorY)")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorClick"))) { _ in
+            if selectedTab == 0 && isBrowserArrowNavigationActive {
+                print("[DEBUG] Dispatching click event to WebView at: \(browserCursorX), \(browserCursorY)")
+                WebViewStore.performClick(at: CGPoint(x: browserCursorX, y: browserCursorY))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserExitArrowNavigation"))) { _ in
+            if selectedTab == 0 {
+                isBrowserArrowNavigationActive = false
+                ActiveTabState.isArrowNavigationActive = false
+                isArrowNavigationLocked = false
+                print("[DEBUG] Exited browser arrow navigation via notification")
             }
         }
         .edgesIgnoringSafeArea(.all)
@@ -630,6 +735,7 @@ struct ContentView: View {
             isShowingDirectorySelector = true
             ActiveTabState.selectedTab = selectedTab
             ActiveTabState.isSelectorModeActive = true
+            isArrowNavigationLocked = false
             
             // Compile and set up browser content filtering rules on launch
             WebViewStore.updateAdBlockerState()
@@ -642,6 +748,7 @@ struct ContentView: View {
             ActiveTabState.selectedTab = newValue
             ActiveTabState.isArrowNavigationActive = false
             isBrowserArrowNavigationActive = false
+            isArrowNavigationLocked = false
             if newValue == 1 {
                 isShowingDirectorySelector = true
                 ActiveTabState.isSelectorModeActive = true
@@ -713,6 +820,7 @@ struct SettingsView: View {
     @Binding var isRotatedMouseEnabled: Bool
     @Binding var isRotateLeftEnabled: Bool
     @Binding var isAdBlockerEnabled: Bool
+    @Binding var browserCursorSize: Double
     var onRefreshBrowser: () -> Void
     
     // Custom premium focus ring states
@@ -889,7 +997,22 @@ struct SettingsView: View {
                     }
                 }
                 
-                // 4th Section: Keyboard Shortcuts Guide
+                // 4th Section: Browser Navigation Setting
+                SettingsCard(title: "Browser Navigation Setting", icon: "cursorarrow") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Focus Box Size: \(Int(browserCursorSize)) px")
+                            .font(.system(size: 16, weight: .semibold))
+                        
+                        Slider(value: $browserCursorSize, in: 20...120, step: 5)
+                            .tint(.blue)
+                        
+                        Text("Adjusts the width and height of the cursor target area when navigating the browser using arrows.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                // 5th Section: Keyboard Shortcuts Guide
                 SettingsCard(title: "Keyboard Shortcuts", icon: "keyboard") {
                     VStack(alignment: .leading, spacing: 12) {
                         ShortcutRow(keys: "⌘ 1 / 2 / 3", description: "Switch direct Tabs")
@@ -1197,6 +1320,7 @@ struct DirectorySelectorView: View {
     let folderPath: String
     let files: [URL]
     @Binding var selectedIndex: Int
+    @Binding var isArrowNavigationLocked: Bool
     let hasPrevPage: Bool
     let hasNextPage: Bool
     let totalPages: Int
@@ -1305,6 +1429,7 @@ struct DirectorySelectorView: View {
                                 immediateAction: {
                                     selectedIndex = goUpIdx
                                     ActiveTabState.isArrowNavigationActive = true
+                                    isArrowNavigationLocked = true
                                 },
                                 action: {
                                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
@@ -1349,6 +1474,7 @@ struct DirectorySelectorView: View {
                                 immediateAction: {
                                     selectedIndex = prevIndex
                                     ActiveTabState.isArrowNavigationActive = true
+                                    isArrowNavigationLocked = true
                                 },
                                 action: {
                                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
@@ -1393,6 +1519,7 @@ struct DirectorySelectorView: View {
                                 immediateAction: {
                                     selectedIndex = returnIdx
                                     ActiveTabState.isArrowNavigationActive = true
+                                    isArrowNavigationLocked = true
                                 },
                                 action: {
                                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
@@ -1448,6 +1575,7 @@ struct DirectorySelectorView: View {
                                 immediateAction: {
                                     selectedIndex = virtualIndex
                                     ActiveTabState.isArrowNavigationActive = true
+                                    isArrowNavigationLocked = true
                                 },
                                 action: {
                                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
@@ -1500,6 +1628,7 @@ struct DirectorySelectorView: View {
                                 immediateAction: {
                                     selectedIndex = nextIndex
                                     ActiveTabState.isArrowNavigationActive = true
+                                    isArrowNavigationLocked = true
                                 },
                                 action: {
                                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)

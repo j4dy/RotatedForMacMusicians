@@ -6,6 +6,7 @@ class RotatedWindow: NSWindow {
     static var pendingNavigationWorkItem: DispatchWorkItem?
     static var lastWarpPoint: NSPoint?
     static var activeCursorPos: CGPoint?
+    static var browserExitWorkItem: DispatchWorkItem?
     
     // Recursive hit-test function that respects visual transforms
     func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
@@ -44,6 +45,14 @@ class RotatedWindow: NSWindow {
 
 
     override func sendEvent(_ event: NSEvent) {
+        if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+            if let responder = self.firstResponder as? NSView, self.isNativeView(responder) {
+                if !WebViewStore.isProgrammaticClick {
+                    print("[DEBUG] Webview has focus in browser arrow navigation mode. Resigning focus to window.")
+                    self.makeFirstResponder(nil)
+                }
+            }
+        }
         // Programmatic Warp Event Intercept: Ignore events synthesized by our own cursor warping to break the runaway feedback loop
         let currentPoint = NSEvent.mouseLocation
         if let lastWarp = RotatedWindow.lastWarpPoint {
@@ -324,7 +333,70 @@ class RotatedWindow: NSWindow {
             // Enter key (36 is Return, 76 is Numpad Enter)
             let isEnter = event.keyCode == 36 || event.keyCode == 76
             
-            if (hasLeft && hasRight) || isEnter {
+            if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                if hasLeft && hasRight {
+                    RotatedWindow.pendingNavigationWorkItem?.cancel()
+                    RotatedWindow.pendingNavigationWorkItem = nil
+                    
+                    if RotatedWindow.browserExitWorkItem == nil {
+                        print("[DEBUG] Simultaneous Left+Right detected in browser arrow navigation: scheduling 3s exit timer.")
+                        let exitWorkItem = DispatchWorkItem {
+                            print("[DEBUG] Simultaneous Left+Right held for 3s: Exiting browser arrow navigation.")
+                            NotificationCenter.default.post(name: NSNotification.Name("BrowserExitArrowNavigation"), object: nil)
+                            RotatedWindow.browserExitWorkItem = nil
+                        }
+                        RotatedWindow.browserExitWorkItem = exitWorkItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: exitWorkItem)
+                    }
+                    return
+                }
+                
+                if isEnter {
+                    RotatedWindow.pendingNavigationWorkItem?.cancel()
+                    RotatedWindow.pendingNavigationWorkItem = nil
+                    
+                    if !event.isARepeat {
+                        print("[DEBUG] Browser Arrow Mode Click triggered via Enter")
+                        NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorClick"), object: nil)
+                    }
+                    return
+                }
+                
+                let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                if !mods.contains(.option) && !mods.contains(.command) {
+                    if event.keyCode == 123 { // Left Arrow
+                        if event.isARepeat {
+                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveLeft"), object: nil)
+                        } else {
+                            RotatedWindow.pendingNavigationWorkItem?.cancel()
+                            let workItem = DispatchWorkItem {
+                                NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveLeft"), object: nil)
+                            }
+                            RotatedWindow.pendingNavigationWorkItem = workItem
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: workItem)
+                        }
+                        return
+                    } else if event.keyCode == 124 { // Right Arrow
+                        if event.isARepeat {
+                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveRight"), object: nil)
+                        } else {
+                            RotatedWindow.pendingNavigationWorkItem?.cancel()
+                            let workItem = DispatchWorkItem {
+                                NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveRight"), object: nil)
+                            }
+                            RotatedWindow.pendingNavigationWorkItem = workItem
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: workItem)
+                        }
+                        return
+                    } else if event.keyCode == 125 { // Down Arrow
+                        NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveDown"), object: nil)
+                        return
+                    } else if event.keyCode == 126 { // Up Arrow
+                        NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveUp"), object: nil)
+                        return
+                    }
+                }
+            } else if (hasLeft && hasRight) || isEnter {
                 if ActiveTabState.selectedTab == 1 {
                     // Cancel any scheduled single arrow navigation immediately if simultaneous press detected
                     RotatedWindow.pendingNavigationWorkItem?.cancel()
@@ -337,46 +409,9 @@ class RotatedWindow: NSWindow {
                     RotatedWindow.pendingNavigationWorkItem?.cancel()
                     RotatedWindow.pendingNavigationWorkItem = nil
                     
-                    if ActiveTabState.isArrowNavigationActive {
-                        print("Enter triggered in Browser (both buttons or physical Enter)")
-                        if let returnEvent = NSEvent.keyEvent(
-                            with: .keyDown,
-                            location: event.locationInWindow,
-                            modifierFlags: event.modifierFlags,
-                            timestamp: event.timestamp,
-                            windowNumber: event.windowNumber,
-                            context: nil,
-                            characters: "\r",
-                            charactersIgnoringModifiers: "\r",
-                            isARepeat: false,
-                            keyCode: 36
-                        ) {
-                            if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
-                                responder.keyDown(with: returnEvent)
-                                if let returnUpEvent = NSEvent.keyEvent(
-                                    with: .keyUp,
-                                    location: event.locationInWindow,
-                                    modifierFlags: event.modifierFlags,
-                                    timestamp: event.timestamp,
-                                    windowNumber: event.windowNumber,
-                                    context: nil,
-                                    characters: "\r",
-                                    charactersIgnoringModifiers: "\r",
-                                    isARepeat: false,
-                                    keyCode: 36
-                                ) {
-                                    responder.keyUp(with: returnUpEvent)
-                                }
-                            } else {
-                                super.sendEvent(returnEvent)
-                            }
-                        }
-                        return
-                    } else {
-                        print("Enter triggered on Browser: enabling arrow navigation")
-                        NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
-                        return
-                    }
+                    print("Enter triggered on Browser: enabling arrow navigation")
+                    NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
+                    return
                 }
             }
             
@@ -391,30 +426,6 @@ class RotatedWindow: NSWindow {
                     return
                 }
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
-                
-                // If arrow navigation is active in browser tab, send Shift-Tab
-                if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
-                    print("Browser active arrow mode: Left -> Shift-Tab (down)")
-                    if let shiftTabEvent = NSEvent.keyEvent(
-                        with: .keyDown,
-                        location: event.locationInWindow,
-                        modifierFlags: event.modifierFlags.union(.shift),
-                        timestamp: event.timestamp,
-                        windowNumber: event.windowNumber,
-                        context: nil,
-                        characters: "\t",
-                        charactersIgnoringModifiers: "\t",
-                        isARepeat: event.isARepeat,
-                        keyCode: 48
-                    ) {
-                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
-                            responder.keyDown(with: shiftTabEvent)
-                        } else {
-                            super.sendEvent(shiftTabEvent)
-                        }
-                    }
-                    return
-                }
                 
                 let workItem = DispatchWorkItem {
                     if isCommand {
@@ -443,30 +454,6 @@ class RotatedWindow: NSWindow {
                 }
                 RotatedWindow.pendingNavigationWorkItem?.cancel()
                 
-                // If arrow navigation is active in browser tab, send Tab
-                if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
-                    print("Browser active arrow mode: Right -> Tab (down)")
-                    if let tabEvent = NSEvent.keyEvent(
-                        with: .keyDown,
-                        location: event.locationInWindow,
-                        modifierFlags: event.modifierFlags.subtracting(.shift),
-                        timestamp: event.timestamp,
-                        windowNumber: event.windowNumber,
-                        context: nil,
-                        characters: "\t",
-                        charactersIgnoringModifiers: "\t",
-                        isARepeat: event.isARepeat,
-                        keyCode: 48
-                    ) {
-                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
-                            responder.keyDown(with: tabEvent)
-                        } else {
-                            super.sendEvent(tabEvent)
-                        }
-                    }
-                    return
-                }
-                
                 let workItem = DispatchWorkItem {
                     if isCommand {
                         NotificationCenter.default.post(name: NSNotification.Name("TabNavigateRight"), object: nil)
@@ -489,49 +476,22 @@ class RotatedWindow: NSWindow {
         } else if event.type == .keyUp {
             RotatedWindow.pressedKeys.remove(event.keyCode)
             
-            // Intercept Arrow Key releases when browser arrow navigation is active to prevent beeps or weird default web navigation behaviors
+            // Cancel browser exit timer if either left or right arrow is released
+            if event.keyCode == 123 || event.keyCode == 124 {
+                if let item = RotatedWindow.browserExitWorkItem {
+                    item.cancel()
+                    RotatedWindow.browserExitWorkItem = nil
+                    print("[DEBUG] Simultaneous Left+Right released before 3s: Cancelled browserExitWorkItem and triggering click.")
+                    
+                    if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                        NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorClick"), object: nil)
+                    }
+                }
+            }
+            
+            // Intercept Arrow Key and Enter releases when browser arrow navigation is active to prevent beeps or weird default web navigation behaviors
             if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
-                if event.keyCode == 123 { // Left Arrow
-                    print("Browser active arrow mode: Left -> Shift-Tab (up)")
-                    if let shiftTabEvent = NSEvent.keyEvent(
-                        with: .keyUp,
-                        location: event.locationInWindow,
-                        modifierFlags: event.modifierFlags.union(.shift),
-                        timestamp: event.timestamp,
-                        windowNumber: event.windowNumber,
-                        context: nil,
-                        characters: "\t",
-                        charactersIgnoringModifiers: "\t",
-                        isARepeat: event.isARepeat,
-                        keyCode: 48
-                    ) {
-                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
-                            responder.keyUp(with: shiftTabEvent)
-                        } else {
-                            super.sendEvent(shiftTabEvent)
-                        }
-                    }
-                    return
-                } else if event.keyCode == 124 { // Right Arrow
-                    print("Browser active arrow mode: Right -> Tab (up)")
-                    if let tabEvent = NSEvent.keyEvent(
-                        with: .keyUp,
-                        location: event.locationInWindow,
-                        modifierFlags: event.modifierFlags.subtracting(.shift),
-                        timestamp: event.timestamp,
-                        windowNumber: event.windowNumber,
-                        context: nil,
-                        characters: "\t",
-                        charactersIgnoringModifiers: "\t",
-                        isARepeat: event.isARepeat,
-                        keyCode: 48
-                    ) {
-                        if let responder = self.firstResponder as? NSView, responder.className.contains("WK") {
-                            responder.keyUp(with: tabEvent)
-                        } else {
-                            super.sendEvent(tabEvent)
-                        }
-                    }
+                if event.keyCode == 123 || event.keyCode == 124 || event.keyCode == 125 || event.keyCode == 126 || event.keyCode == 36 || event.keyCode == 76 {
                     return
                 }
             }
@@ -604,7 +564,7 @@ class RotatedWindow: NSWindow {
         if event.type == .keyDown || event.type == .keyUp {
             if let responder = self.firstResponder as? NSView {
                 let className = responder.className
-                if className.contains("WK") || className.contains("TextField") || className.contains("NSText") {
+                if self.isNativeView(responder) || className.contains("TextField") || className.contains("NSText") {
                     if event.type == .keyDown { responder.keyDown(with: event); return }
                     else { responder.keyUp(with: event); return }
                 }
@@ -626,7 +586,7 @@ class RotatedContainerView: NSView {
         var current: NSView? = target
         while let v = current {
             let name = v.className
-            if name.contains("WK") || name.contains("PDF") || name.contains("Text") || name.contains("Field") || name.contains("Switch") || name.contains("Button") {
+            if name.contains("WK") || name.contains("PDF") || name.contains("Text") || name.contains("Field") || name.contains("Switch") || name.contains("Button") || name.contains("Slider") {
                 return target
             }
             current = v.superview
@@ -723,6 +683,27 @@ class StableWindowController: NSObject, NSWindowDelegate {
         
         container.addSubview(hostingView)
         
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("BrowserTriggerEnterAction"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            print("[DEBUG] BrowserTriggerEnterAction notification: resigning first responder focus")
+            win.makeFirstResponder(nil)
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("BrowserExitArrowNavigation"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            RotatedWindow.browserExitWorkItem?.cancel()
+            RotatedWindow.browserExitWorkItem = nil
+            RotatedWindow.pressedKeys.removeAll()
+            print("[DEBUG] Exited browser arrow navigation: resigning first responder focus and clearing pressedKeys")
+            win.makeFirstResponder(nil)
+        }
+        
         win.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
         
@@ -796,6 +777,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
 @main
 struct RotatedBrowserApp: App {
     init() {
+        setbuf(stdout, nil)
         NSApplication.shared.setActivationPolicy(.regular)
         AppAnalytics.shared.trackEvent(name: "app_launch", parameters: ["event_category": "Lifecycle"])
         DispatchQueue.main.async {
