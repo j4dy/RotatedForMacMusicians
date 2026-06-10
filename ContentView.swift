@@ -738,8 +738,14 @@ struct ContentView: View {
                         print("[DEBUG] Scanning Mode: Toggled stopped axis to Horizontal")
                     }
                 } else {
-                    browserCursorX = max(browserCursorX - 25, 0)
-                    print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                    if browserCursorX - 25 < 0 {
+                        browserCursorX = browserViewportSize.width
+                        browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
+                        print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
+                    } else {
+                        browserCursorX -= 25
+                        print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                    }
                 }
             }
         }
@@ -757,8 +763,14 @@ struct ContentView: View {
                         break
                     }
                 } else {
-                    browserCursorX = min(browserCursorX + 25, browserViewportSize.width)
-                    print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                    if browserCursorX + 25 > browserViewportSize.width {
+                        browserCursorX = 0
+                        browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
+                        print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
+                    } else {
+                        browserCursorX += 25
+                        print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                    }
                 }
             }
         }
