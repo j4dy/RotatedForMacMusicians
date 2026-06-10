@@ -127,11 +127,13 @@ class WebViewStore {
             let px: CGFloat
             let py: CGFloat
             
+            let tabBarHeight = winWidth - bounds.height
+            
             if isLeft {
                 py = appKitPoint.x
-                px = winWidth - appKitPoint.y
+                px = (winWidth - tabBarHeight) - appKitPoint.y
             } else {
-                px = appKitPoint.y
+                px = appKitPoint.y + tabBarHeight
                 py = (winHeight - titleBarHeight) - appKitPoint.x
             }
             
