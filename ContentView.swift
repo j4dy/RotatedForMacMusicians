@@ -40,6 +40,16 @@ struct ContentView: View {
     @State private var isBrowserArrowNavigationActive = false
     @State private var isArrowNavigationLocked = false
     
+    // States for button double-press line navigation
+    @State private var lastLeftClickTime: Date = .distantPast
+    @State private var lastRightClickTime: Date = .distantPast
+    @State private var preLeftCursorX: CGFloat = 400
+    @State private var preLeftCursorY: CGFloat = 300
+    @State private var leftWrapped: Bool = false
+    @State private var preRightCursorX: CGFloat = 400
+    @State private var preRightCursorY: CGFloat = 300
+    @State private var rightWrapped: Bool = false
+    
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
         if let url = URL(string: defaultURL), url.scheme != nil {
@@ -687,27 +697,79 @@ struct ContentView: View {
                 print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { notification in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                if browserCursorX - 25 < 0 {
-                    browserCursorX = browserViewportSize.width
-                    browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
-                    print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
+                let isRepeat = notification.object as? Bool ?? false
+                let now = Date()
+                
+                if !isRepeat && now.timeIntervalSince(lastLeftClickTime) < 0.25 {
+                    // Double Click detected! Restore X to pre-move position, and adjust Y to move up 1 line
+                    browserCursorX = preLeftCursorX
+                    if leftWrapped {
+                        // Y was already decremented by the first click's wrap, so we do not decrement again.
+                        browserCursorY = browserCursorY
+                    } else {
+                        // Y was not decremented, so we decrement Y by 1 line now
+                        browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
+                    }
+                    print("[DEBUG] Double Click Left: Y moved up to \(browserCursorY), X restored to \(browserCursorX)")
+                    lastLeftClickTime = .distantPast
                 } else {
-                    browserCursorX -= 25
-                    print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                    // Single Click (or repeat)
+                    if !isRepeat {
+                        lastLeftClickTime = now
+                        preLeftCursorX = browserCursorX
+                        preLeftCursorY = browserCursorY
+                    }
+                    
+                    if browserCursorX - 25 < 0 {
+                        if !isRepeat { leftWrapped = true }
+                        browserCursorX = browserViewportSize.width
+                        browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
+                        print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
+                    } else {
+                        if !isRepeat { leftWrapped = false }
+                        browserCursorX -= 25
+                        print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                    }
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { notification in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                if browserCursorX + 25 > browserViewportSize.width {
-                    browserCursorX = 0
-                    browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
-                    print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
+                let isRepeat = notification.object as? Bool ?? false
+                let now = Date()
+                
+                if !isRepeat && now.timeIntervalSince(lastRightClickTime) < 0.25 {
+                    // Double Click detected! Restore X to pre-move position, and adjust Y to move down 1 line
+                    browserCursorX = preRightCursorX
+                    if rightWrapped {
+                        // Y was already incremented by the first click's wrap, so we do not increment again
+                        browserCursorY = browserCursorY
+                    } else {
+                        // Y was not incremented, so we increment Y by 1 line now
+                        browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
+                    }
+                    print("[DEBUG] Double Click Right: Y moved down to \(browserCursorY), X restored to \(browserCursorX)")
+                    lastRightClickTime = .distantPast
                 } else {
-                    browserCursorX += 25
-                    print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                    // Single Click (or repeat)
+                    if !isRepeat {
+                        lastRightClickTime = now
+                        preRightCursorX = browserCursorX
+                        preRightCursorY = browserCursorY
+                    }
+                    
+                    if browserCursorX + 25 > browserViewportSize.width {
+                        if !isRepeat { rightWrapped = true }
+                        browserCursorX = 0
+                        browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
+                        print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
+                    } else {
+                        if !isRepeat { rightWrapped = false }
+                        browserCursorX += 25
+                        print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                    }
                 }
             }
         }

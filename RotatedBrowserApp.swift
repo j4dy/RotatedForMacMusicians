@@ -366,11 +366,11 @@ class RotatedWindow: NSWindow {
                 if !mods.contains(.option) && !mods.contains(.command) {
                     if event.keyCode == 123 { // Left Arrow
                         if event.isARepeat {
-                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveLeft"), object: nil)
+                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveLeft"), object: true)
                         } else {
                             RotatedWindow.pendingNavigationWorkItem?.cancel()
                             let workItem = DispatchWorkItem {
-                                NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveLeft"), object: nil)
+                                NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveLeft"), object: false)
                             }
                             RotatedWindow.pendingNavigationWorkItem = workItem
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: workItem)
@@ -378,11 +378,11 @@ class RotatedWindow: NSWindow {
                         return
                     } else if event.keyCode == 124 { // Right Arrow
                         if event.isARepeat {
-                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveRight"), object: nil)
+                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveRight"), object: true)
                         } else {
                             RotatedWindow.pendingNavigationWorkItem?.cancel()
                             let workItem = DispatchWorkItem {
-                                NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveRight"), object: nil)
+                                NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorMoveRight"), object: false)
                             }
                             RotatedWindow.pendingNavigationWorkItem = workItem
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: workItem)
