@@ -6,13 +6,6 @@ fileprivate func isDirectory(_ url: URL) -> Bool {
     return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
 }
 
-enum ScanState {
-    case scanningHorizontal
-    case scanningVertical
-    case stoppedHorizontal
-    case stoppedVertical
-}
-
 struct ActiveTabState {
     static var selectedTab: Int = 0
     static var isSelectorModeActive: Bool = true
@@ -33,10 +26,6 @@ struct ContentView: View {
     @AppStorage("isRotateLeftEnabled") private var isRotateLeftEnabled: Bool = false
     @AppStorage("isAdBlockerEnabled") private var isAdBlockerEnabled: Bool = false
     @AppStorage("browserCursorSize") private var browserCursorSize: Double = 80.0
-    @AppStorage("isTwoButtonScanningEnabled") private var isTwoButtonScanningEnabled: Bool = false
-    @State private var scanState: ScanState = .scanningHorizontal
-    private let scanningTimer = Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()
-    
     @State private var browserCursorX: CGFloat = 400
     @State private var browserCursorY: CGFloat = 300
     @State private var browserViewportSize: CGSize = CGSize(width: 800, height: 600)
@@ -494,7 +483,6 @@ struct ContentView: View {
                             isRotateLeftEnabled: $isRotateLeftEnabled,
                             isAdBlockerEnabled: $isAdBlockerEnabled,
                             browserCursorSize: $browserCursorSize,
-                            isTwoButtonScanningEnabled: $isTwoButtonScanningEnabled,
                             onRefreshBrowser: {
                                 refreshBrowserWithNewURL()
                             }
@@ -594,10 +582,6 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleAdBlocker"))) { _ in
             isAdBlockerEnabled.toggle()
             print("Toggled Ad Blocker via shortcut: \(isAdBlockerEnabled)")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ToggleScanningMode"))) { _ in
-            isTwoButtonScanningEnabled.toggle()
-            print("Toggled Scanning Mode via shortcut: \(isTwoButtonScanningEnabled)")
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwitchToBrowser"))) { _ in
             selectedTab = 0
@@ -700,104 +684,49 @@ struct ContentView: View {
                 isArrowNavigationLocked = true
                 browserCursorX = browserViewportSize.width / 2
                 browserCursorY = browserViewportSize.height / 2
-                scanState = .scanningHorizontal
                 print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
-            }
-        }
-        .onReceive(scanningTimer) { _ in
-            guard isBrowserArrowNavigationActive && isTwoButtonScanningEnabled else { return }
-            guard browserViewportSize.width > 0 && browserViewportSize.height > 0 else { return }
-            let speed: CGFloat = 8.0
-            if scanState == .scanningHorizontal {
-                browserCursorX += speed
-                if browserCursorX > browserViewportSize.width {
-                    browserCursorX = 0
-                }
-            } else if scanState == .scanningVertical {
-                browserCursorY += speed
-                if browserCursorY > browserViewportSize.height {
-                    browserCursorY = 0
-                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                if isTwoButtonScanningEnabled {
-                    switch scanState {
-                    case .scanningHorizontal:
-                        scanState = .stoppedHorizontal
-                        print("[DEBUG] Scanning Mode: Stopped scan at horizontal axis")
-                    case .scanningVertical:
-                        scanState = .stoppedVertical
-                        print("[DEBUG] Scanning Mode: Stopped scan at vertical axis")
-                    case .stoppedHorizontal:
-                        scanState = .stoppedVertical
-                        print("[DEBUG] Scanning Mode: Toggled stopped axis to Vertical")
-                    case .stoppedVertical:
-                        scanState = .stoppedHorizontal
-                        print("[DEBUG] Scanning Mode: Toggled stopped axis to Horizontal")
-                    }
+                if browserCursorX - 25 < 0 {
+                    browserCursorX = browserViewportSize.width
+                    browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
+                    print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
                 } else {
-                    if browserCursorX - 25 < 0 {
-                        browserCursorX = browserViewportSize.width
-                        browserCursorY = max(browserCursorY - CGFloat(browserCursorSize), 0)
-                        print("[DEBUG] Cursor Wrapped Left: going up 1 line to \(browserCursorY)")
-                    } else {
-                        browserCursorX -= 25
-                        print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
-                    }
+                    browserCursorX -= 25
+                    print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                if isTwoButtonScanningEnabled {
-                    switch scanState {
-                    case .stoppedHorizontal:
-                        scanState = .scanningHorizontal
-                        print("[DEBUG] Scanning Mode: Resumed Horizontal scan")
-                    case .stoppedVertical:
-                        scanState = .scanningVertical
-                        print("[DEBUG] Scanning Mode: Resumed Vertical scan")
-                    default:
-                        break
-                    }
+                if browserCursorX + 25 > browserViewportSize.width {
+                    browserCursorX = 0
+                    browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
+                    print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
                 } else {
-                    if browserCursorX + 25 > browserViewportSize.width {
-                        browserCursorX = 0
-                        browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
-                        print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
-                    } else {
-                        browserCursorX += 25
-                        print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
-                    }
+                    browserCursorX += 25
+                    print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveUp"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                if !isTwoButtonScanningEnabled {
-                    browserCursorY = max(browserCursorY - 25, 0)
-                    print("[DEBUG] Cursor Move Up: \(browserCursorX), \(browserCursorY)")
-                }
+                browserCursorY = max(browserCursorY - 25, 0)
+                print("[DEBUG] Cursor Move Up: \(browserCursorX), \(browserCursorY)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveDown"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                if !isTwoButtonScanningEnabled {
-                    browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
-                    print("[DEBUG] Cursor Move Down: \(browserCursorX), \(browserCursorY)")
-                }
+                browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
+                print("[DEBUG] Cursor Move Down: \(browserCursorX), \(browserCursorY)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorClick"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
                 print("[DEBUG] Dispatching click event to WebView at: \(browserCursorX), \(browserCursorY)")
                 WebViewStore.performClick(at: CGPoint(x: browserCursorX, y: browserCursorY))
-                if isTwoButtonScanningEnabled {
-                    scanState = .scanningHorizontal
-                    print("[DEBUG] Scanning Mode: Clicked, resetting to Scanning Horizontal")
-                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserExitArrowNavigation"))) { _ in
@@ -903,7 +832,6 @@ struct SettingsView: View {
     @Binding var isRotateLeftEnabled: Bool
     @Binding var isAdBlockerEnabled: Bool
     @Binding var browserCursorSize: Double
-    @Binding var isTwoButtonScanningEnabled: Bool
     var onRefreshBrowser: () -> Void
     
     // Custom premium focus ring states
@@ -1093,37 +1021,6 @@ struct SettingsView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                         
-                        Divider()
-                            .padding(.vertical, 8)
-                        
-                        HStack {
-                            Toggle(isOn: $isTwoButtonScanningEnabled) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Scanning Mode")
-                                        .font(.system(size: 16, weight: .semibold))
-                                    Text("Automatically sweep cursor. Left arrow stops scan (press again to toggle direction), Right arrow resumes scan, Enter clicks.")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .toggleStyle(.switch)
-                            
-                            Spacer()
-                            
-                            Text("⌥ S")
-                                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color(NSColor.controlBackgroundColor))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                )
-                                .foregroundColor(.blue)
-                        }
                     }
                 }
                 
@@ -1138,7 +1035,6 @@ struct SettingsView: View {
                         ShortcutRow(keys: "⌥ ↑  /  PgUp", description: "Scroll view UP programmatically")
                         ShortcutRow(keys: "⌘ F", description: "Toggle Window Fullscreen Mode")
                         ShortcutRow(keys: "⌥ O", description: "Open macOS PDF File Browser")
-                        ShortcutRow(keys: "⌥ S", description: "Toggle Scanning Mode")
                     }
                 }
             }
