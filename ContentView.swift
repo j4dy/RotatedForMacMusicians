@@ -26,6 +26,9 @@ struct ContentView: View {
     @AppStorage("isRotateLeftEnabled") private var isRotateLeftEnabled: Bool = false
     @AppStorage("isAdBlockerEnabled") private var isAdBlockerEnabled: Bool = false
     @AppStorage("browserCursorSize") private var browserCursorSize: Double = 80.0
+    @AppStorage("isTwoButtonScanningEnabled") private var isTwoButtonScanningEnabled: Bool = false
+    @State private var scanningState: Int = 0 // 0 = Horizontal, 1 = Vertical
+    private let scanningTimer = Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()
     
     @State private var browserCursorX: CGFloat = 400
     @State private var browserCursorY: CGFloat = 300
@@ -484,6 +487,7 @@ struct ContentView: View {
                             isRotateLeftEnabled: $isRotateLeftEnabled,
                             isAdBlockerEnabled: $isAdBlockerEnabled,
                             browserCursorSize: $browserCursorSize,
+                            isTwoButtonScanningEnabled: $isTwoButtonScanningEnabled,
                             onRefreshBrowser: {
                                 refreshBrowserWithNewURL()
                             }
@@ -685,31 +689,63 @@ struct ContentView: View {
                 isArrowNavigationLocked = true
                 browserCursorX = browserViewportSize.width / 2
                 browserCursorY = browserViewportSize.height / 2
+                scanningState = 0
                 print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
+            }
+        }
+        .onReceive(scanningTimer) { _ in
+            guard isBrowserArrowNavigationActive && isTwoButtonScanningEnabled else { return }
+            guard browserViewportSize.width > 0 && browserViewportSize.height > 0 else { return }
+            let speed: CGFloat = 8.0
+            if scanningState == 0 {
+                browserCursorX += speed
+                if browserCursorX > browserViewportSize.width {
+                    browserCursorX = 0
+                }
+            } else {
+                browserCursorY += speed
+                if browserCursorY > browserViewportSize.height {
+                    browserCursorY = 0
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                browserCursorX = max(browserCursorX - 25, 0)
-                print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                if isTwoButtonScanningEnabled {
+                    print("[DEBUG] 2-Button Scan: Click triggered at \(browserCursorX), \(browserCursorY)")
+                    WebViewStore.performClick(at: CGPoint(x: browserCursorX, y: browserCursorY))
+                    scanningState = 0
+                } else {
+                    browserCursorX = max(browserCursorX - 25, 0)
+                    print("[DEBUG] Cursor Move Left: \(browserCursorX), \(browserCursorY)")
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                browserCursorX = min(browserCursorX + 25, browserViewportSize.width)
-                print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                if isTwoButtonScanningEnabled {
+                    scanningState = (scanningState == 0) ? 1 : 0
+                    print("[DEBUG] 2-Button Scan: Toggled axis to \(scanningState == 0 ? "Horizontal" : "Vertical")")
+                } else {
+                    browserCursorX = min(browserCursorX + 25, browserViewportSize.width)
+                    print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveUp"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                browserCursorY = max(browserCursorY - 25, 0)
-                print("[DEBUG] Cursor Move Up: \(browserCursorX), \(browserCursorY)")
+                if !isTwoButtonScanningEnabled {
+                    browserCursorY = max(browserCursorY - 25, 0)
+                    print("[DEBUG] Cursor Move Up: \(browserCursorX), \(browserCursorY)")
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveDown"))) { _ in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
-                print("[DEBUG] Cursor Move Down: \(browserCursorX), \(browserCursorY)")
+                if !isTwoButtonScanningEnabled {
+                    browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
+                    print("[DEBUG] Cursor Move Down: \(browserCursorX), \(browserCursorY)")
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorClick"))) { _ in
@@ -821,6 +857,7 @@ struct SettingsView: View {
     @Binding var isRotateLeftEnabled: Bool
     @Binding var isAdBlockerEnabled: Bool
     @Binding var browserCursorSize: Double
+    @Binding var isTwoButtonScanningEnabled: Bool
     var onRefreshBrowser: () -> Void
     
     // Custom premium focus ring states
@@ -1009,6 +1046,22 @@ struct SettingsView: View {
                         Text("Adjusts the width and height of the cursor target area when navigating the browser using arrows.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
+                        
+                        Divider()
+                            .padding(.vertical, 8)
+                        
+                        HStack {
+                            Toggle(isOn: $isTwoButtonScanningEnabled) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("2-Button Scanning Mode")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    Text("Automatically sweep cursor. Right arrow switches axis (X/Y), Left arrow clicks.")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                        }
                     }
                 }
                 
