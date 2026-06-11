@@ -49,7 +49,7 @@ class RotatedWindow: NSWindow {
 
 
     override func sendEvent(_ event: NSEvent) {
-        if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+        if (ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2) && ActiveTabState.isArrowNavigationActive {
             if let responder = self.firstResponder as? NSView, self.isNativeView(responder) {
                 if !WebViewStore.isProgrammaticClick {
                     print("[DEBUG] Webview has focus in browser arrow navigation mode. Resigning focus to window.")
@@ -337,7 +337,7 @@ class RotatedWindow: NSWindow {
             // Enter key (36 is Return, 76 is Numpad Enter)
             let isEnter = event.keyCode == 36 || event.keyCode == 76
             
-            if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+            if (ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2) && ActiveTabState.isArrowNavigationActive {
                 if hasLeft && hasRight {
                     RotatedWindow.pendingNavigationWorkItem?.cancel()
                     RotatedWindow.pendingNavigationWorkItem = nil
@@ -413,11 +413,11 @@ class RotatedWindow: NSWindow {
                     print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
                     NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
                     return
-                } else if ActiveTabState.selectedTab == 0 {
+                } else if ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2 {
                     RotatedWindow.pendingNavigationWorkItem?.cancel()
                     RotatedWindow.pendingNavigationWorkItem = nil
                     
-                    print("Enter triggered on Browser: enabling arrow navigation")
+                    print("Enter triggered on Browser/Settings: enabling arrow navigation")
                     NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
                     return
                 }
@@ -490,7 +490,7 @@ class RotatedWindow: NSWindow {
                     RotatedWindow.isSimultaneousActive = false
                     
                     if !RotatedWindow.wasDoubleSimultaneous {
-                        if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                        if (ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2) && ActiveTabState.isArrowNavigationActive {
                             print("[DEBUG] Simultaneous Left+Right released: Triggering click.")
                             NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorClick"), object: nil)
                         }
@@ -499,7 +499,7 @@ class RotatedWindow: NSWindow {
             }
             
             // Intercept Arrow Key and Enter releases when browser arrow navigation is active to prevent beeps or weird default web navigation behaviors
-            if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+            if (ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2) && ActiveTabState.isArrowNavigationActive {
                 if event.keyCode == 123 || event.keyCode == 124 || event.keyCode == 125 || event.keyCode == 126 || event.keyCode == 36 || event.keyCode == 76 {
                     return
                 }

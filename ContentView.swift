@@ -11,6 +11,7 @@ struct ActiveTabState {
     static var isSelectorModeActive: Bool = true
     static var isArrowNavigationActive: Bool = false
     static var isCurrentImage: Bool = false
+    static var viewportSize: CGSize = CGSize(width: 800, height: 600)
 }
 
 struct ContentView: View {
@@ -268,243 +269,248 @@ struct ContentView: View {
         ZStack {
             VStack(spacing: 0) {
                 // Main Content Area
-                ZStack {
-                    if selectedTab == 0 {
-                        // Tab 0: Browser View
-                        GeometryReader { geo in
-                            ZStack(alignment: .topLeading) {
-                                WebView(url: parsedURL, isLoading: $isBrowserLoading)
-                                    .id("tab-0")
-                                    .onChange(of: geo.size) { oldSize, newSize in
-                                        browserViewportSize = newSize
-                                        print("[DEBUG] Viewport resized: \(newSize.width)x\(newSize.height)")
+                GeometryReader { geo in
+                    ZStack(alignment: .topLeading) {
+                        ZStack {
+                            if selectedTab == 0 {
+                                // Tab 0: Browser View
+                                ZStack {
+                                    WebView(url: parsedURL, isLoading: $isBrowserLoading)
+                                        .id("tab-0")
+                                    
+                                    if isBrowserLoading {
+                                        ZStack {
+                                            Color.black.opacity(0.3)
+                                            VStack(spacing: 16) {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                    .scaleEffect(1.5)
+                                                Text("Loading Page...")
+                                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                    .foregroundColor(.white)
+                                            }
+                                            .padding(24)
+                                            .background(Color.black.opacity(0.75))
+                                            .cornerRadius(16)
+                                        }
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     }
-                                    .onAppear {
-                                        browserViewportSize = geo.size
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture { location in
+                                    self.lastClick = location
+                                    print("Detected Tap at: \(location)")
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                        if self.lastClick == location { self.lastClick = .zero }
                                     }
-                                
-                                // Glowing Focus Cursor Box Overlay
-                                if isBrowserArrowNavigationActive {
-                                    ZStack {
-                                        // Thicker outer neon border with bright neon color
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.red, lineWidth: 5)
-                                            .background(Color.yellow.opacity(0.18))
+                                }
+                            } else if selectedTab == 1 {
+                                // Tab 1: PDF Viewer & Selection Mode
+                                VStack(spacing: 0) {
+                                    if let pdfURL = activePDFURL, !isShowingDirectorySelector {
+                                        PDFViewWrapper(
+                                            url: pdfURL,
+                                            currentPageIndex: $pdfCurrentPageIndex,
+                                            totalPageCount: $pdfTotalPageCount
+                                        )
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                         
-                                        // Inner crosshair or center dot
-                                        Circle()
-                                            .fill(Color.red)
-                                            .frame(width: 12, height: 12)
-                                            .shadow(color: .white, radius: 2)
-                                    }
-                                    .frame(width: CGFloat(browserCursorSize), height: CGFloat(browserCursorSize))
-                                    .position(x: browserCursorX, y: browserCursorY)
-                                    .shadow(color: Color.red.opacity(0.85), radius: 12)
-                                    .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserCursorX)
-                                    .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserCursorY)
-                                    .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserViewportSize)
-                                }
-                                
-                                if isBrowserLoading {
-                                    ZStack {
-                                        Color.black.opacity(0.3)
-                                        VStack(spacing: 16) {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                                .scaleEffect(1.5)
-                                            Text("Loading Page...")
-                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        // Premium Super-Compact Control Bar
+                                        HStack(spacing: 24) {
+                                            // Folder List Button to return to selection mode
+                                            Button(action: {
+                                                isShowingDirectorySelector = true
+                                            }) {
+                                                Image(systemName: "folder.fill")
+                                                    .font(.system(size: 13, weight: .bold))
+                                                    .foregroundColor(.white)
+                                                    .padding(6)
+                                                    .background(Color.white.opacity(0.15))
+                                                    .clipShape(Circle())
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            // Previous Page Button
+                                            Button(action: {
+                                                NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                                            }) {
+                                                Image(systemName: "chevron.left")
+                                                    .font(.system(size: 13, weight: .bold))
+                                                    .foregroundColor(pdfCurrentPageIndex > 0 ? .white : .white.opacity(0.3))
+                                                    .padding(6)
+                                                    .background(pdfCurrentPageIndex > 0 ? Color.blue.opacity(0.7) : Color.clear)
+                                                    .clipShape(Circle())
+                                            }
+                                            .disabled(pdfCurrentPageIndex <= 0)
+                                            .buttonStyle(.plain)
+                                            
+                                            // Page Counter
+                                            Text(pdfPageCounterText)
+                                                .font(.system(size: 13, weight: .bold, design: .rounded))
                                                 .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 4)
+                                                .background(Color.white.opacity(0.1))
+                                                .cornerRadius(8)
+                                            
+                                            // Next Page Button
+                                            Button(action: {
+                                                NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                                            }) {
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 13, weight: .bold))
+                                                    .foregroundColor(pdfCurrentPageIndex < pdfTotalPageCount - 1 ? .white : .white.opacity(0.3))
+                                                    .padding(6)
+                                                    .background(pdfCurrentPageIndex < pdfTotalPageCount - 1 ? Color.blue.opacity(0.7) : Color.clear)
+                                                    .clipShape(Circle())
+                                            }
+                                            .disabled(pdfCurrentPageIndex >= pdfTotalPageCount - 1)
+                                            .buttonStyle(.plain)
+                                            
+                                            Spacer()
+                                            
+                                            // Active PDF File Name display
+                                            Text(pdfURL.lastPathComponent)
+                                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                                .foregroundColor(.white.opacity(0.85))
+                                                .lineLimit(1)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 4)
+                                                .background(Color.white.opacity(0.12))
+                                                .cornerRadius(6)
                                         }
-                                        .padding(24)
-                                        .background(Color.black.opacity(0.75))
-                                        .cornerRadius(16)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 6)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.black.opacity(0.85))
+                                    } else {
+                                        // Directory File Selection Mode or Empty State
+                                        DirectorySelectorView(
+                                            folderPath: resolvedCurrentDirectoryURL.path,
+                                            files: pagedPDFFiles,
+                                            selectedIndex: $directorySelectedIndex,
+                                            isArrowNavigationLocked: $isArrowNavigationLocked,
+                                            hasPrevPage: hasPrevPage,
+                                            hasNextPage: hasNextPage,
+                                            totalPages: totalPages,
+                                            currentPage: directoryPage,
+                                            showGoUpRow: showGoUpRow,
+                                            showReturnToTabsRow: showReturnToTabsRow,
+                                            onPrevPage: {
+                                                goToPrevPage()
+                                            },
+                                            onNextPage: {
+                                                goToNextPage()
+                                            },
+                                            onGoUp: {
+                                                goToParentDirectory()
+                                            },
+                                            onSelect: { url in
+                                                if isDirectory(url) {
+                                                    currentDirectoryURL = url
+                                                    directoryPage = 0
+                                                    directorySelectedIndex = 0
+                                                } else {
+                                                    selectedPDFFileURL = url
+                                                    isShowingDirectorySelector = false
+                                                }
+                                            },
+                                            onBack: {
+                                                ActiveTabState.isArrowNavigationActive = false
+                                                isArrowNavigationLocked = false
+                                                print("Back selected: Returned arrow keys focus to tab cycling")
+                                            }
+                                        )
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
-                                
-                                if isBrowserArrowNavigationActive {
-                                     VStack {
-                                         Spacer()
-                                         HStack {
-                                             Spacer()
-                                              VStack(spacing: 6) {
-                                                  HStack(spacing: 8) {
-                                                      Image(systemName: "info.circle.fill")
-                                                          .foregroundColor(.white)
-                                                      Text("Double-click both buttons to exit browsing")
-                                                          .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                          .foregroundColor(.white)
-                                                  }
-                                                  Text("Double-click left key to toggle direction  |  Double-click right key to go back")
-                                                      .font(.system(size: 11, weight: .medium, design: .rounded))
-                                                      .foregroundColor(.white.opacity(0.95))
-                                              }
-                                              .padding(.horizontal, 18)
-                                             .padding(.vertical, 10)
-                                             .background(Color.orange.opacity(0.85))
-                                             .cornerRadius(20)
-                                             .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
-                                             Spacer()
-                                         }
-                                         .frame(maxWidth: .infinity)
-                                         .padding(.bottom, 24)
-                                     }
-                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                 }
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { location in
-                            self.lastClick = location
-                            print("Detected Tap at: \(location)")
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                                if self.lastClick == location { self.lastClick = .zero }
-                            }
-                        }
-                    } else if selectedTab == 1 {
-                        // Tab 1: PDF Viewer & Selection Mode
-                        VStack(spacing: 0) {
-                            if let pdfURL = activePDFURL, !isShowingDirectorySelector {
-                                PDFViewWrapper(
-                                    url: pdfURL,
-                                    currentPageIndex: $pdfCurrentPageIndex,
-                                    totalPageCount: $pdfTotalPageCount
-                                )
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                
-                                // Premium Super-Compact Control Bar
-                                HStack(spacing: 24) {
-                                    // Folder List Button to return to selection mode
-                                    Button(action: {
-                                        isShowingDirectorySelector = true
-                                    }) {
-                                        Image(systemName: "folder.fill")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .padding(6)
-                                            .background(Color.white.opacity(0.15))
-                                            .clipShape(Circle())
+                                .id("tab-1")
+                                .contentShape(Rectangle())
+                                .onTapGesture { location in
+                                    self.lastClick = location
+                                    print("Detected Tap at: \(location)")
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                        if self.lastClick == location { self.lastClick = .zero }
                                     }
-                                    .buttonStyle(.plain)
-                                    
-                                    // Previous Page Button
-                                    Button(action: {
-                                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
-                                    }) {
-                                        Image(systemName: "chevron.left")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(pdfCurrentPageIndex > 0 ? .white : .white.opacity(0.3))
-                                            .padding(6)
-                                            .background(pdfCurrentPageIndex > 0 ? Color.blue.opacity(0.7) : Color.clear)
-                                            .clipShape(Circle())
-                                    }
-                                    .disabled(pdfCurrentPageIndex <= 0)
-                                    .buttonStyle(.plain)
-                                    
-                                    // Page Counter
-                                    Text(pdfPageCounterText)
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 4)
-                                        .background(Color.white.opacity(0.1))
-                                        .cornerRadius(8)
-                                    
-                                    // Next Page Button
-                                    Button(action: {
-                                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
-                                    }) {
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(pdfCurrentPageIndex < pdfTotalPageCount - 1 ? .white : .white.opacity(0.3))
-                                            .padding(6)
-                                            .background(pdfCurrentPageIndex < pdfTotalPageCount - 1 ? Color.blue.opacity(0.7) : Color.clear)
-                                            .clipShape(Circle())
-                                    }
-                                    .disabled(pdfCurrentPageIndex >= pdfTotalPageCount - 1)
-                                    .buttonStyle(.plain)
-                                    
-                                    Spacer()
-                                    
-                                    // Active PDF File Name display
-                                    Text(pdfURL.lastPathComponent)
-                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                        .foregroundColor(.white.opacity(0.85))
-                                        .lineLimit(1)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 4)
-                                        .background(Color.white.opacity(0.12))
-                                        .cornerRadius(6)
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.black.opacity(0.85))
                             } else {
-                                // Directory File Selection Mode or Empty State
-                                DirectorySelectorView(
-                                    folderPath: resolvedCurrentDirectoryURL.path,
-                                    files: pagedPDFFiles,
-                                    selectedIndex: $directorySelectedIndex,
-                                    isArrowNavigationLocked: $isArrowNavigationLocked,
-                                    hasPrevPage: hasPrevPage,
-                                    hasNextPage: hasNextPage,
-                                    totalPages: totalPages,
-                                    currentPage: directoryPage,
-                                    showGoUpRow: showGoUpRow,
-                                    showReturnToTabsRow: showReturnToTabsRow,
-                                    onPrevPage: {
-                                        goToPrevPage()
-                                    },
-                                    onNextPage: {
-                                        goToNextPage()
-                                    },
-                                    onGoUp: {
-                                        goToParentDirectory()
-                                    },
-                                    onSelect: { url in
-                                        if isDirectory(url) {
-                                            currentDirectoryURL = url
-                                            directoryPage = 0
-                                            directorySelectedIndex = 0
-                                        } else {
-                                            selectedPDFFileURL = url
-                                            isShowingDirectorySelector = false
-                                        }
-                                    },
-                                    onBack: {
-                                        ActiveTabState.isArrowNavigationActive = false
-                                        isArrowNavigationLocked = false
-                                        print("Back selected: Returned arrow keys focus to tab cycling")
+                                // Tab 2: Settings View
+                                SettingsView(
+                                    defaultURL: $defaultURL,
+                                    defaultPDFLocation: $defaultPDFLocation,
+                                    isRotatedMouseEnabled: $isRotatedMouseEnabled,
+                                    isRotateLeftEnabled: $isRotateLeftEnabled,
+                                    isAdBlockerEnabled: $isAdBlockerEnabled,
+                                    browserCursorSize: $browserCursorSize,
+                                    onRefreshBrowser: {
+                                        refreshBrowserWithNewURL()
                                     }
                                 )
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .id("tab-2")
                             }
                         }
-                        .id("tab-1")
-                        .contentShape(Rectangle())
-                        .onTapGesture { location in
-                            self.lastClick = location
-                            print("Detected Tap at: \(location)")
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                                if self.lastClick == location { self.lastClick = .zero }
-                            }
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .onChange(of: geo.size) { oldSize, newSize in
+                            browserViewportSize = newSize
+                            ActiveTabState.viewportSize = newSize
+                            print("[DEBUG] Viewport resized: \(newSize.width)x\(newSize.height)")
                         }
-                    } else {
-                        // Tab 2: Settings View
-                        SettingsView(
-                            defaultURL: $defaultURL,
-                            defaultPDFLocation: $defaultPDFLocation,
-                            isRotatedMouseEnabled: $isRotatedMouseEnabled,
-                            isRotateLeftEnabled: $isRotateLeftEnabled,
-                            isAdBlockerEnabled: $isAdBlockerEnabled,
-                            browserCursorSize: $browserCursorSize,
-                            onRefreshBrowser: {
-                                refreshBrowserWithNewURL()
+                        .onAppear {
+                            browserViewportSize = geo.size
+                            ActiveTabState.viewportSize = geo.size
+                        }
+                        
+                        // Glowing Focus Cursor Box Overlay
+                        if isBrowserArrowNavigationActive && (selectedTab == 0 || selectedTab == 2) {
+                            ZStack {
+                                // Thicker outer neon border with bright neon color
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.red, lineWidth: 5)
+                                    .background(Color.yellow.opacity(0.18))
+                                
+                                // Inner crosshair or center dot
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 12, height: 12)
+                                    .shadow(color: .white, radius: 2)
                             }
-                        )
-                        .id("tab-2")
+                            .frame(width: CGFloat(browserCursorSize), height: CGFloat(browserCursorSize))
+                            .position(x: browserCursorX, y: browserCursorY)
+                            .shadow(color: Color.red.opacity(0.85), radius: 12)
+                            .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserCursorX)
+                            .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserCursorY)
+                            .animation(.spring(response: 0.18, dampingFraction: 0.75), value: browserViewportSize)
+                        }
+                        
+                        if isBrowserArrowNavigationActive && (selectedTab == 0 || selectedTab == 2) {
+                             VStack {
+                                 Spacer()
+                                 HStack {
+                                     Spacer()
+                                      VStack(spacing: 6) {
+                                          HStack(spacing: 8) {
+                                              Image(systemName: "info.circle.fill")
+                                                  .foregroundColor(.white)
+                                              Text("Double-click both buttons to exit browsing")
+                                                  .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                  .foregroundColor(.white)
+                                          }
+                                          Text("Double-click left key to toggle direction  |  Double-click right key to go back")
+                                              .font(.system(size: 11, weight: .medium, design: .rounded))
+                                              .foregroundColor(.white.opacity(0.95))
+                                      }
+                                      .padding(.horizontal, 18)
+                                     .padding(.vertical, 10)
+                                     .background(Color.orange.opacity(0.85))
+                                     .cornerRadius(20)
+                                     .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
+                                     Spacer()
+                                 }
+                                 .frame(maxWidth: .infinity)
+                                 .padding(.bottom, 24)
+                             }
+                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -695,18 +701,18 @@ struct ContentView: View {
             print("Switched to folder selector via notification")
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserTriggerEnterAction"))) { _ in
-            if selectedTab == 0 {
+            if selectedTab == 0 || selectedTab == 2 {
                 isBrowserArrowNavigationActive = true
                 ActiveTabState.isArrowNavigationActive = true
                 isArrowNavigationLocked = true
                 browserCursorX = browserViewportSize.width / 2
                 browserCursorY = browserViewportSize.height / 2
                 isArrowNavigationVertical = false // start in horizontal direction by default
-                print("Switched browser arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
+                print("Switched browser/settings arrow navigation active: true, recentered cursor to \(browserCursorX), \(browserCursorY)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveLeft"))) { notification in
-            if selectedTab == 0 && isBrowserArrowNavigationActive {
+            if (selectedTab == 0 || selectedTab == 2) && isBrowserArrowNavigationActive {
                 let isRepeat = notification.object as? Bool ?? false
                 let now = Date()
                 
@@ -758,7 +764,7 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { notification in
-            if selectedTab == 0 && isBrowserArrowNavigationActive {
+            if (selectedTab == 0 || selectedTab == 2) && isBrowserArrowNavigationActive {
                 let isRepeat = notification.object as? Bool ?? false
                 let now = Date()
                 
@@ -810,30 +816,30 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveUp"))) { _ in
-            if selectedTab == 0 && isBrowserArrowNavigationActive {
+            if (selectedTab == 0 || selectedTab == 2) && isBrowserArrowNavigationActive {
                 browserCursorY = max(browserCursorY - 25, 0)
                 print("[DEBUG] Cursor Move Up: \(browserCursorX), \(browserCursorY)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveDown"))) { _ in
-            if selectedTab == 0 && isBrowserArrowNavigationActive {
+            if (selectedTab == 0 || selectedTab == 2) && isBrowserArrowNavigationActive {
                 browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
                 print("[DEBUG] Cursor Move Down: \(browserCursorX), \(browserCursorY)")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorClick"))) { _ in
-            if selectedTab == 0 && isBrowserArrowNavigationActive {
-                print("[DEBUG] Dispatching click event to WebView at: \(browserCursorX), \(browserCursorY)")
+            if (selectedTab == 0 || selectedTab == 2) && isBrowserArrowNavigationActive {
+                print("[DEBUG] Dispatching click event to WebView/Settings at: \(browserCursorX), \(browserCursorY)")
                 WebViewStore.performClick(at: CGPoint(x: browserCursorX, y: browserCursorY))
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserExitArrowNavigation"))) { _ in
-            if selectedTab == 0 {
+            if selectedTab == 0 || selectedTab == 2 {
                 isBrowserArrowNavigationActive = false
                 ActiveTabState.isArrowNavigationActive = false
                 isArrowNavigationLocked = false
                 isArrowNavigationVertical = false // reset direction to default (horizontal)
-                print("[DEBUG] Exited browser arrow navigation via notification")
+                print("[DEBUG] Exited browser/settings arrow navigation via notification")
             }
         }
         .edgesIgnoringSafeArea(.all)

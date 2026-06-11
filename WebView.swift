@@ -105,18 +105,17 @@ class WebViewStore {
     }
 
     static func performClick(at point: CGPoint) {
-        let webView = sharedWebView
         DispatchQueue.main.async {
-            guard let win = webView.window else {
-                print("[DEBUG] WebView has no window; ignoring click.")
+            guard let win = StableWindowController.shared.window else {
+                print("[DEBUG] StableWindowController has no window; ignoring click.")
                 return
             }
             isProgrammaticClick = true
             defer { isProgrammaticClick = false }
             
-            let bounds = webView.bounds
+            let viewportHeight = ActiveTabState.viewportSize.height
             // Convert top-left SwiftUI coordinates to bottom-left AppKit coordinates
-            let appKitPoint = NSPoint(x: point.x, y: bounds.height - point.y)
+            let appKitPoint = NSPoint(x: point.x, y: viewportHeight - point.y)
             
             let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
             let winWidth = win.frame.width
@@ -127,7 +126,7 @@ class WebViewStore {
             let px: CGFloat
             let py: CGFloat
             
-            let tabBarHeight = winWidth - bounds.height
+            let tabBarHeight = winWidth - viewportHeight
             
             if isLeft {
                 py = appKitPoint.x
