@@ -2,7 +2,7 @@
 set -e
 
 APP_NAME="Vecto"
-BINARY_NAME="net.j4dy.RotatedBrowserApp"
+BINARY_NAME="net.j4dy.Vecto"
 DMG_NAME="Vecto.dmg"
 RELEASE_DIR="release_build"
 

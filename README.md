@@ -65,7 +65,7 @@ chmod +x build_and_run.sh
 Since the repository is structured as a Swift Package Manager executable, you can open the project directly inside Xcode:
 1. Open Xcode and select **File > Open**.
 2. Select the directory containing `Package.swift`.
-3. Choose the `net.j4dy.RotatedBrowserApp` scheme and click **Run** (⌘R).
+3. Choose the `net.j4dy.Vecto` scheme and click **Run** (⌘R).
 
 ---
 

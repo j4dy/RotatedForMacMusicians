@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "net.j4dy.RotatedBrowserApp",
+    name: "net.j4dy.Vecto",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "net.j4dy.RotatedBrowserApp", targets: ["RotatedBrowserApp"])
+        .executable(name: "net.j4dy.Vecto", targets: ["RotatedBrowserApp"])
     ],
     targets: [
         .executableTarget(
