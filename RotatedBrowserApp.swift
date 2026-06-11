@@ -799,6 +799,7 @@ struct RotatedBrowserApp: App {
     init() {
         setbuf(stdout, nil)
         NSApplication.shared.setActivationPolicy(.regular)
+        _ = NSCursor.swizzleSet
         AppAnalytics.shared.trackEvent(name: "app_launch", parameters: ["event_category": "Lifecycle"])
         DispatchQueue.main.async {
             StableWindowController.shared.setup()
@@ -817,3 +818,112 @@ struct RotatedBrowserApp: App {
         }
     }
 }
+
+class CursorSwizzler {
+    static var isSettingRotatedCursor = false
+}
+
+struct CursorCacheKey: Hashable {
+    let cursor: NSCursor
+    let isLeft: Bool
+}
+
+class CursorCache {
+    private static var cache = [CursorCacheKey: NSCursor]()
+    
+    static func rotatedCursor(for cursor: NSCursor, isLeft: Bool) -> NSCursor? {
+        let key = CursorCacheKey(cursor: cursor, isLeft: isLeft)
+        if let cached = cache[key] {
+            return cached
+        }
+        
+        if let rotated = cursor.rotatedCursor(isLeft: isLeft) {
+            cache[key] = rotated
+            return rotated
+        }
+        return nil
+    }
+}
+
+extension NSImage {
+    func rotated(by degrees: CGFloat) -> NSImage? {
+        let newSize = NSSize(width: self.size.height, height: self.size.width)
+        let rotatedImage = NSImage(size: newSize)
+        
+        rotatedImage.lockFocus()
+        defer { rotatedImage.unlockFocus() }
+        
+        if let context = NSGraphicsContext.current?.cgContext {
+            context.translateBy(x: newSize.width / 2, y: newSize.height / 2)
+            context.rotate(by: degrees * .pi / 180.0)
+            let drawRect = NSRect(
+                x: -self.size.width / 2,
+                y: -self.size.height / 2,
+                width: self.size.width,
+                height: self.size.height
+            )
+            self.draw(in: drawRect, from: .zero, operation: .copy, fraction: 1.0)
+            return rotatedImage
+        }
+        return nil
+    }
+}
+
+extension NSCursor {
+    func rotatedCursor(isLeft: Bool) -> NSCursor? {
+        let angle: CGFloat = isLeft ? 90.0 : -90.0
+        let originalImage = self.image
+        let originalHotSpot = self.hotSpot
+        
+        guard let rotatedImage = originalImage.rotated(by: angle) else {
+            return nil
+        }
+        
+        let w = originalImage.size.width
+        let h = originalImage.size.height
+        
+        let newHotSpot: NSPoint
+        if isLeft {
+            newHotSpot = NSPoint(x: originalHotSpot.y, y: w - originalHotSpot.x)
+        } else {
+            newHotSpot = NSPoint(x: h - originalHotSpot.y, y: originalHotSpot.x)
+        }
+        
+        return NSCursor(image: rotatedImage, hotSpot: newHotSpot)
+    }
+    
+    @objc func my_set() {
+        if CursorSwizzler.isSettingRotatedCursor {
+            self.my_set()
+            return
+        }
+        
+        let isRotatedMouse = UserDefaults.standard.bool(forKey: "isRotatedMouseEnabled")
+        if isRotatedMouse {
+            CursorSwizzler.isSettingRotatedCursor = true
+            defer { CursorSwizzler.isSettingRotatedCursor = false }
+            
+            let isLeft = UserDefaults.standard.bool(forKey: "isRotateLeftEnabled")
+            if let rotated = CursorCache.rotatedCursor(for: self, isLeft: isLeft) {
+                rotated.my_set()
+                return
+            }
+        }
+        
+        self.my_set()
+    }
+    
+    static let swizzleSet: Void = {
+        let originalSelector = #selector(NSCursor.set)
+        let swizzledSelector = #selector(NSCursor.my_set)
+        
+        guard let originalMethod = class_getInstanceMethod(NSCursor.self, originalSelector),
+              let swizzledMethod = class_getInstanceMethod(NSCursor.self, swizzledSelector) else {
+            return
+        }
+        
+        method_exchangeImplementations(originalMethod, swizzledMethod)
+        print("[DEBUG] Successfully swizzled NSCursor.set()")
+    }()
+}
+
