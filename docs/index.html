@@ -674,80 +674,18 @@
         </div>
     </section>
 
-    <!-- Hard Part of Programming Section -->
+    <!-- Challenges Section -->
     <section id="hard-part-section" style="padding: 100px 40px; max-width: 1200px; margin: 0 auto; border-top: 1px solid var(--card-border);">
-        <div class="section-header">
-            <h2 class="section-title">The Hard Part of Programming: Event Coordinates Under Rotation</h2>
+        <div class="section-header" style="margin-bottom: 40px;">
+            <h2 class="section-title">Challenges</h2>
             <p class="section-subtitle">Bridging declarative layout systems with low-level window coordinate conversion matrices.</p>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; align-items: start;">
-            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
-                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">Why SwiftUI Gestures Failed</h3>
-                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.6;">
-                    In AppKit, visual layout rotation is achieved using <code>frameCenterRotation</code>. However, SwiftUI's custom gesture engine processes coordinate movements internally during active drag-and-release loops.
-                </p>
-                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
-                    When dragging or releasing a mouse click, SwiftUI's tracking engine fails to map coordinates through the <code>frameCenterRotation</code> transform matrix. This mismatch makes the engine treat mouse-up coordinates as physical screen values, thinking the user dragged away and released elsewhere. The button gesture is immediately cancelled.
-                </p>
-            </div>
-            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
-                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">The Native Solution</h3>
-                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.6;">
-                    Instead of fighting the declarative coordinate tracking system, we wrapped native Cocoa <code>NSButton</code> views using <code>NSViewRepresentable</code>.
-                </p>
-                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
-                    By tweaking the window's <code>hitTest(_:)</code> implementation to check the target leaf control and its ancestral tree for <code>"Button"</code>, physical events are routed directly to the native control. The native button handles its own drag-tracking loops natively, firing the actions perfectly every time.
-                </p>
-            </div>
-            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
-                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">State Synchronization</h3>
-                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.6;">
-                    To provide tactile visual click feedback, we implemented a 250ms green flash on the selector items. However, delaying actions creates a critical race condition: if a user clicks a row and immediately presses keyboard arrows, the active selection index gets out of sync.
-                </p>
-                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
-                    We solved this by splitting row events into an <strong>immediate action</strong> (instantly updating the selection index and snapping the blue keyboard outline to the clicked row) and a <strong>deferred action</strong> (executing the load/navigation after the 250ms green flash), while keeping all row indices sequentially unique.
-                </p>
-            </div>
-            <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow);">
-                <h3 style="font-size: 1.3rem; margin-bottom: 15px; color: var(--accent);">Why Browser Tab is Unaffected</h3>
-                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6;">
-                    The Browser tab uses a native AppKit <code>WKWebView</code>. Since native controls bypass SwiftUI's custom gesture engine, they use AppKit's low-level event routing directly and are completely unaffected by SwiftUI's rotated coordinate tracking bug.
-                </p>
-            </div>
-        </div>
-        <div style="margin-top: 50px; background: var(--card-bg); border: 1px solid var(--card-border); padding: 40px; border-radius: 16px; box-shadow: var(--glow); text-align: center;">
-            <h3 style="font-size: 1.4rem; margin-bottom: 25px; color: var(--accent);">Visual Event Flow & Coordinate Mismatch Infographic</h3>
-            <img src="rotated_mismatch_diagram.png" alt="Coordinate Rotation Mismatch & AppKit Translation Layer Infographic" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 45px rgba(0,0,0,0.4); margin: 0 auto 40px auto; display: block;">
-            
-            <h3 style="font-size: 1.4rem; margin-bottom: 25px; color: var(--accent);">Interactive Event Flow Chart</h3>
-            <div class="mermaid" style="display: flex; justify-content: center; background: transparent;">
-                graph TD
-                    subgraph Physical Screen Space
-                        A[Physical Click: Mouse Down at X, Y] --> B[Mouse Drag/Hold]
-                        B --> C[Physical Release: Mouse Up at X, Y]
-                    end
-
-                    subgraph AppKit Window Space (Rotated -90°)
-                        D[Window intercepts Event]
-                        D --> E[Correctly Translated Coordinates]
-                    end
-
-                    subgraph SwiftUI Gesture Engine (Failure Path)
-                        E --> F[SwiftUI Button: Pressed State]
-                        C --> G[SwiftUI Gesture Tracker]
-                        G --> H[FAIL: Does not apply Rotation Matrix to Mouse Up]
-                        H --> I[Cancels Gesture / Button Click fails]
-                    end
-
-                    subgraph Native AppKit Event Routing (Success Path)
-                        D --> J{Is leaf view an NSButton?}
-                        J -->|Yes| K[Forward raw event directly to NSButton]
-                        K --> L[Native Cocoa tracking loop handles drag/release]
-                        L -->|SUCCESS| M[Action Triggered instantly and reliably]
-                    end
-
-                    style G fill:#7f1d1d,stroke:#f87171,color:#fee2e2
-                    style L fill:#064e3b,stroke:#34d399,color:#d1fae5
+        <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 40px; border-radius: 16px; box-shadow: var(--glow); text-align: center; max-height: 300px; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; align-items: center; box-sizing: border-box;">
+            <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.6; max-width: 800px; margin-bottom: 20px;">
+                Resolving why standard SwiftUI buttons and gestures fail to receive clicks when their parent view is rotated using AppKit's <code>frameCenterRotation</code> was the primary engineering challenge. Under rotation, SwiftUI's coordinate tracking engine fails to apply the transformation matrix on mouse-up events, resulting in cancelled gestures.
+            </p>
+            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: linear-gradient(to bottom, transparent, rgba(20, 24, 46, 0.95)); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 25px; box-sizing: border-box;">
+                <a href="file:///Users/judyj4dy.net/.gemini/antigravity/brain/263f05d4-e612-4ad1-8e64-3a15b11de7ad/hardest_part_explanation.md" class="primary-btn" style="background: var(--gradient);">Read Complete Findings (hardest_part_explanation.md)</a>
             </div>
         </div>
     </section>
