@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challenges: Event Coordinates Under Rotation — Vecto</title>
+    <meta name="description" content="Technical explanation of the event coordinate remapping challenges and AppKit event routing solution in Vecto.">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0b0d19;
+            --card-bg: rgba(20, 24, 46, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --accent: #06b6d4;
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
+            --gradient: linear-gradient(135deg, var(--primary), var(--accent));
+            --glow: 0 0 30px rgba(59, 130, 246, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+        }
+
+        #main-header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 40px;
+            z-index: 100;
+            background: rgba(11, 13, 25, 0.7);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--gradient);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            box-shadow: var(--glow);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.5px;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #fff;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 120px auto 100px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: var(--glow);
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 8px;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 25px;
+            margin-bottom: 12px;
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        ol, ul {
+            margin-left: 20px;
+            margin-bottom: 25px;
+            color: var(--text-muted);
+            font-size: 1.05rem;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        strong {
+            color: #fff;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: #060810;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #38bdf8;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .diagram-container {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .infographic-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            margin: 30px 0;
+            display: block;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid var(--card-border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+    <!-- Mermaid.js for Rendering Diagrams -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'dark',
+            themeVariables: {
+                background: '#0b0d19',
+                primaryColor: '#1e293b',
+                primaryTextColor: '#f3f4f6',
+                lineColor: '#475569'
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <header id="main-header">
+        <a href="index.html" class="logo-container">
+            <div class="logo-icon">V</div>
+            <span class="logo-text">Vecto</span>
+        </a>
+        <a href="index.html" class="back-link">
+            <span>&larr;</span> Back to Home
+        </a>
+    </header>
+
+    <main class="container">
+        <h1>Challenges: Event Coordinates Under Rotation</h1>
+        <p class="subtitle">An in-depth analysis of declarative coordinate mapping and event redirection inside Apple's visual transform stack.</p>
+
+        <img src="rotated_mismatch_diagram.png" alt="Coordinate Rotation Mismatch Infographic" class="infographic-img">
+
+        <section class="card">
+            <h2>Coordinate Transformation and Event Routing Flow</h2>
+            <div class="diagram-container">
+                <div class="mermaid">
+                    flowchart TD
+                        subgraph Physical Screen Space
+                            A[Physical Click: Mouse Down at X, Y] --> B[Mouse Drag/Hold]
+                            B --> C[Physical Release: Mouse Up at X, Y]
+                        end
+
+                        subgraph AppKit Window Space (Rotated -90°)
+                            D[Window intercepts Event]
+                            D -->|Applies -90° Transform Matrix| E[Correctly Translated Coordinates]
+                        end
+
+                        subgraph SwiftUI Gesture Engine (Failure Path)
+                            E -->|Initiates Click Gesture| F[SwiftUI Button: Pressed State]
+                            C -->|Mouse Up Event fired| G[SwiftUI Gesture Tracker]
+                            G -->|FAIL: Does not apply Rotation Matrix to Mouse Up| H[Thinks Mouse Up is at raw screen coordinates]
+                            H -->|Determines release was outside button| I[Cancels Gesture / Button Click fails]
+                        end
+
+                        subgraph Native AppKit Event Routing (Success Path)
+                            D -->|Custom NSWindow hitTest| J{Is leaf view an NSButton?}
+                            J -->|Yes| K[Forward raw NSEvent directly to NSButton]
+                            K --> L[Native Cocoa tracking loop handles drag/release]
+                            L -->|SUCCESS| M[Action Triggered instantly and reliably]
+                        end
+
+                        style A fill:#1e293b,stroke:#475569,color:#f1f5f9
+                        style D fill:#1e1b4b,stroke:#4f46e5,color:#e0e7ff
+                        style G fill:#7f1d1d,stroke:#f87171,color:#fee2e2
+                        style L fill:#064e3b,stroke:#34d399,color:#d1fae5
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Description of the Mismatch</h2>
+            <ol>
+                <li><strong>The Core Mismatch:</strong> When AppKit rotates a view hierarchy using <code>frameCenterRotation</code>, it updates the drawing context. However, SwiftUI's gesture tracker tracks drag-release sequences in parallel.</li>
+                <li><strong>The MouseUp Failure:</strong> On <code>mouseDown</code>, coordinates are translated correctly. But on <code>mouseUp</code>, SwiftUI's tracking engine compares the release coordinate with the start coordinate without running it through the <code>-90°</code> transformation matrix.</li>
+                <li><strong>The Result:</strong> SwiftUI thinks the user moved the mouse off the button before releasing, thereby cancelling the tap gesture.</li>
+                <li><strong>The Fix:</strong> Our native <code>hitTest</code> override detects the click targets and routes the event directly to standard AppKit <code>NSButton</code> views (via <code>NSViewRepresentable</code>), which use native tracking loops that do not suffer from this declarative coordinate mismatch.</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>Why the Browser Tab is Unaffected</h2>
+            <p>The Browser Tab (Tab 0) is driven by <code>FocusableWebView</code> (which wraps AppKit's native <code>WKWebView</code>). Native AppKit views do not route mouse clicks through SwiftUI's gesture engine.</p>
+            <p>When a programmatic click is dispatched via <code>win.sendEvent(down)</code> and <code>win.sendEvent(up)</code> at physical coordinates, standard AppKit window routing delivers the events directly to <code>WKWebView</code>'s native tracking system. The web view processes the mouse down and mouse up events in its own coordinates, bypassing SwiftUI's gesture validation. Consequently, the coordinate translation mismatch on mouse-up (which is unique to SwiftUI's gesture engine) never gets triggered.</p>
+        </section>
+
+        <section class="card">
+            <h2>Failed Coordinate Conversion Override Attempt</h2>
+            
+            <h3>What was attempted</h3>
+            <p>To fix coordinate alignments and click issues without using manual event forwarding, we attempted to override the coordinate conversion functions (<code>convert(_:from:)</code>, <code>convert(_:to:)</code>, <code>convert(_:from: rect)</code>, and <code>convert(_:to: rect)</code>) in <code>RotatedHostingView</code> to dynamically transform coordinate spaces during mouse event dispatch. We used a state flag set in <code>sendEvent</code> (<code>EventForwardingState.isProcessingMouseEvent</code>) to scope this custom mapping strictly to active mouse events.</p>
+
+            <h3>Why it failed (and broke Settings tab clicks completely)</h3>
+            <ul>
+                <li><strong>SwiftUI Event Loop Instability:</strong> Overriding <code>convert</code> on <code>RotatedHostingView</code> during mouse events interfered with how SwiftUI’s <code>NSHostingView</code> resolves mouse tracking sequences. Even when scoped to event dispatch, SwiftUI's internal drag/click recognition loops perform nested conversions that became inconsistent or double-rotated when the parent view returned custom logical/physical offsets.</li>
+                <li><strong>Settings Tab Inaccessibility:</strong> Because the Settings tab is built using pure SwiftUI elements, it is entirely reliant on SwiftUI's coordinate tracking to recognize click states. The overridden coordinate conversions corrupted the relative delta computation inside the SwiftUI gesture tracker, causing it to completely ignore clicks on settings inputs (buttons, toggles, text fields).</li>
+                <li><strong>Conclusion:</strong> Custom <code>convert(_:from:)</code> and <code>convert(_:to:)</code> overrides cannot be used on <code>NSHostingView</code> to handle parent visual rotations, because they break the internal alignment of SwiftUI's gesture recognition engine. Manual event forwarding remains the only viable way to send mouse inputs to SwiftUI elements inside a rotated parent view.</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Vecto App. Pivot your display. Realign your Mac.</p>
+    </footer>
+
+</body>
+</html>
