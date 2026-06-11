@@ -679,7 +679,7 @@ class StableWindowController: NSObject, NSWindowDelegate {
         win.delegate = self
         win.level = .floating
         win.hidesOnDeactivate = false
-        win.title = "Rotated Browser"
+        win.title = "Vecto"
         win.isReleasedWhenClosed = false
         win.acceptsMouseMovedEvents = true
         win.backgroundColor = .white

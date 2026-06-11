@@ -6,6 +6,9 @@ A premium, native macOS application designed to display a web browser and a PDF 
 
 Because MacBooks do not have built-in monitor rotation capabilities, Vecto allows you to rotate your sheet music, chord charts, or reference displays onto a physically pivoted external monitor while macOS remains in its default landscape layout. It is tailored for musicians, live performers, and kiosk setups, and is fully optimized for remote control using a standard Bluetooth mouse, a page-turner pedal, or a compact Bluetooth 2-button keyset.
 
+### Why is it called Vecto?
+The name **Vecto** is derived from *vector*, representing direction and magnitude. In mathematics and physics, vectors define heading and coordinate translation. Because the app dynamically redirects input coordinate vectors and realigns physical screen layouts to match your rotated display, Vecto perfectly embodies this alignment transformation.
+
 
 ## Documentation & Downloads
 
@@ -68,15 +71,15 @@ Since the repository is structured as a Swift Package Manager executable, you ca
 
 ## macOS Security Gatekeeper Troubleshooting
 
-Since this pre-alpha build is not code-signed using a paid Apple Developer Account, Gatekeeper may block launch or warn that the application file is "damaged" upon installation.
+Since this beta build is not code-signed using a paid Apple Developer Account, Gatekeeper may block launch or warn that the application file is "damaged" upon installation.
 
 ### Override via Context Menu
-1. In Finder, locate `RotatedBrowserApp` inside `/Applications` or your target folder.
+1. In Finder, locate `Vecto` inside `/Applications` or your target folder.
 2. **Right-click** (or Control-click) the application icon and choose **Open** from the context menu.
 3. In the dialog, click **Open** again to confirm.
 
 ### Override via Terminal
 Alternatively, you can strip the system quarantine flag off the application bundle by running this command:
 ```bash
-xattr -d com.apple.quarantine /Applications/RotatedBrowserApp.app
+xattr -d com.apple.quarantine /Applications/Vecto.app
 ```

@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>net.j4dy.RotatedBrowserApp</string>
+    <string>net.j4dy.Vecto</string>
     <key>CFBundleName</key>
-    <string>Rotated Browser</string>
+    <string>Vecto</string>
+    <key>CFBundleExecutable</key>
+    <string>Vecto</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>
