@@ -1,8 +1,11 @@
-# Rotated Browser App (for Mac Musicians)
+# Vecto (for Mac Musicians)
 
-A premium, native macOS application designed to display a web browser and a PDF viewer rotated by **90 degrees clockwise** (Physical Top = Logical Left). 
+A premium, native macOS application designed to display a web browser and a PDF viewer rotated by **90 degrees** (Landscape to Portrait). 
 
-This app is tailored for musicians, live performers, and kiosk installations using physical displays mounted in portrait orientation while macOS remains in its default landscape orientation.
+### Pivot your display. Realign your Mac.
+
+Because MacBooks do not have built-in monitor rotation capabilities, Vecto allows you to rotate your sheet music, chord charts, or reference displays onto a physically pivoted external monitor while macOS remains in its default landscape layout. It is tailored for musicians, live performers, and kiosk setups, and is fully optimized for remote control using a standard Bluetooth mouse, a page-turner pedal, or a compact Bluetooth 2-button keyset.
+
 
 ## Documentation & Downloads
 
