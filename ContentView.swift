@@ -47,6 +47,11 @@ struct ContentView: View {
     @State private var leftWrapped: Bool = false
     @State private var isArrowNavigationVertical: Bool = false
     
+    @State private var lastRightClickTime: Date = .distantPast
+    @State private var preRightCursorX: CGFloat = 400
+    @State private var preRightCursorY: CGFloat = 300
+    @State private var rightWrapped: Bool = false
+    
     // Helper to dynamically resolve default Browser URL safely
     var parsedURL: URL {
         if let url = URL(string: defaultURL), url.scheme != nil {
@@ -327,11 +332,11 @@ struct ContentView: View {
                                                   HStack(spacing: 8) {
                                                       Image(systemName: "info.circle.fill")
                                                           .foregroundColor(.white)
-                                                      Text("Hold left and right arrow buttons for 3s to exit browsing")
+                                                      Text("Double-click both buttons to exit browsing")
                                                           .font(.system(size: 13, weight: .bold, design: .rounded))
                                                           .foregroundColor(.white)
                                                   }
-                                                  Text("Double-click on left key to toggle arrow moving vertically or horizontally")
+                                                  Text("Double-click left key to toggle direction  |  Double-click right key to go back")
                                                       .font(.system(size: 11, weight: .medium, design: .rounded))
                                                       .foregroundColor(.white.opacity(0.95))
                                               }
@@ -754,20 +759,52 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("BrowserCursorMoveRight"))) { notification in
             if selectedTab == 0 && isBrowserArrowNavigationActive {
-                // Double-click on Right button is cancelled. It functions as a standard click.
-                if isArrowNavigationVertical {
-                    // R button functions as DOWN key in vertical mode
-                    browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
-                    print("[DEBUG] Cursor Move Down (R-button): \(browserCursorX), \(browserCursorY)")
-                } else {
-                    // R button functions as RIGHT key in horizontal mode
-                    if browserCursorX + 25 > browserViewportSize.width {
-                        browserCursorX = 0
-                        browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
-                        print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
+                let isRepeat = notification.object as? Bool ?? false
+                let now = Date()
+                
+                if !isRepeat && now.timeIntervalSince(lastRightClickTime) < 0.25 {
+                    // Double Click detected!
+                    // Navigate back in history
+                    WebViewStore.goBack()
+                    
+                    // Revert the cursor movement caused by the first click of this double-click sequence
+                    if isArrowNavigationVertical {
+                        // First click happened when direction was VERTICAL, so it moved down by 25px
+                        browserCursorY = max(browserCursorY - 25, 0)
                     } else {
-                        browserCursorX += 25
-                        print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                        // First click happened when direction was HORIZONTAL, so it moved right by 25px
+                        browserCursorX = preRightCursorX
+                        if rightWrapped {
+                            browserCursorY = preRightCursorY
+                        }
+                    }
+                    
+                    print("[DEBUG] Double Click Right: Navigating back in history, position reverted.")
+                    lastRightClickTime = .distantPast
+                } else {
+                    // Single Click (or repeat)
+                    if !isRepeat {
+                        lastRightClickTime = now
+                        preRightCursorX = browserCursorX
+                        preRightCursorY = browserCursorY
+                    }
+                    
+                    if isArrowNavigationVertical {
+                        // R button functions as DOWN key in vertical mode
+                        browserCursorY = min(browserCursorY + 25, browserViewportSize.height)
+                        print("[DEBUG] Cursor Move Down (R-button): \(browserCursorX), \(browserCursorY)")
+                    } else {
+                        // R button functions as RIGHT key in horizontal mode
+                        if browserCursorX + 25 > browserViewportSize.width {
+                            if !isRepeat { rightWrapped = true }
+                            browserCursorX = 0
+                            browserCursorY = min(browserCursorY + CGFloat(browserCursorSize), browserViewportSize.height)
+                            print("[DEBUG] Cursor Wrapped Right: going down 1 line to \(browserCursorY)")
+                        } else {
+                            if !isRepeat { rightWrapped = false }
+                            browserCursorX += 25
+                            print("[DEBUG] Cursor Move Right: \(browserCursorX), \(browserCursorY)")
+                        }
                     }
                 }
             }

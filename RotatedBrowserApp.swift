@@ -6,7 +6,11 @@ class RotatedWindow: NSWindow {
     static var pendingNavigationWorkItem: DispatchWorkItem?
     static var lastWarpPoint: NSPoint?
     static var activeCursorPos: CGPoint?
-    static var browserExitWorkItem: DispatchWorkItem?
+    
+    // States for simultaneous double-press exit detection
+    static var lastSimultaneousPressTime: Date = Date.distantPast
+    static var isSimultaneousActive: Bool = false
+    static var wasDoubleSimultaneous: Bool = false
     
     // Recursive hit-test function that respects visual transforms
     func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
@@ -338,15 +342,19 @@ class RotatedWindow: NSWindow {
                     RotatedWindow.pendingNavigationWorkItem?.cancel()
                     RotatedWindow.pendingNavigationWorkItem = nil
                     
-                    if RotatedWindow.browserExitWorkItem == nil {
-                        print("[DEBUG] Simultaneous Left+Right detected in browser arrow navigation: scheduling 3s exit timer.")
-                        let exitWorkItem = DispatchWorkItem {
-                            print("[DEBUG] Simultaneous Left+Right held for 3s: Exiting browser arrow navigation.")
+                    if !RotatedWindow.isSimultaneousActive {
+                        RotatedWindow.isSimultaneousActive = true
+                        let now = Date()
+                        if now.timeIntervalSince(RotatedWindow.lastSimultaneousPressTime) < 0.25 {
+                            // Double simultaneous press detected! Exit browse mode.
+                            print("[DEBUG] Double simultaneous press detected: Exiting browser arrow navigation.")
                             NotificationCenter.default.post(name: NSNotification.Name("BrowserExitArrowNavigation"), object: nil)
-                            RotatedWindow.browserExitWorkItem = nil
+                            RotatedWindow.wasDoubleSimultaneous = true
+                            RotatedWindow.lastSimultaneousPressTime = .distantPast
+                        } else {
+                            RotatedWindow.wasDoubleSimultaneous = false
+                            RotatedWindow.lastSimultaneousPressTime = now
                         }
-                        RotatedWindow.browserExitWorkItem = exitWorkItem
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: exitWorkItem)
                     }
                     return
                 }
@@ -476,15 +484,16 @@ class RotatedWindow: NSWindow {
         } else if event.type == .keyUp {
             RotatedWindow.pressedKeys.remove(event.keyCode)
             
-            // Cancel browser exit timer if either left or right arrow is released
             if event.keyCode == 123 || event.keyCode == 124 {
-                if let item = RotatedWindow.browserExitWorkItem {
-                    item.cancel()
-                    RotatedWindow.browserExitWorkItem = nil
-                    print("[DEBUG] Simultaneous Left+Right released before 3s: Cancelled browserExitWorkItem and triggering click.")
+                if RotatedWindow.isSimultaneousActive {
+                    // One of the keys was released, so simultaneous press is no longer active
+                    RotatedWindow.isSimultaneousActive = false
                     
-                    if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
-                        NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorClick"), object: nil)
+                    if !RotatedWindow.wasDoubleSimultaneous {
+                        if ActiveTabState.selectedTab == 0 && ActiveTabState.isArrowNavigationActive {
+                            print("[DEBUG] Simultaneous Left+Right released: Triggering click.")
+                            NotificationCenter.default.post(name: NSNotification.Name("BrowserCursorClick"), object: nil)
+                        }
                     }
                 }
             }
@@ -697,9 +706,9 @@ class StableWindowController: NSObject, NSWindowDelegate {
             object: nil,
             queue: .main
         ) { _ in
-            RotatedWindow.browserExitWorkItem?.cancel()
-            RotatedWindow.browserExitWorkItem = nil
             RotatedWindow.pressedKeys.removeAll()
+            RotatedWindow.isSimultaneousActive = false
+            RotatedWindow.wasDoubleSimultaneous = false
             print("[DEBUG] Exited browser arrow navigation: resigning first responder focus and clearing pressedKeys")
             win.makeFirstResponder(nil)
         }

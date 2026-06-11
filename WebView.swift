@@ -170,6 +170,18 @@ class WebViewStore {
             }
         }
     }
+    
+    static func goBack() {
+        let webView = sharedWebView
+        DispatchQueue.main.async {
+            if webView.canGoBack {
+                webView.goBack()
+                print("[DEBUG] WebView navigated back in history.")
+            } else {
+                print("[DEBUG] WebView cannot navigate back (no history).")
+            }
+        }
+    }
 }
 
 struct WebView: NSViewRepresentable {
