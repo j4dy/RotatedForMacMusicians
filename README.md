@@ -13,7 +13,7 @@ The name **Vecto** is derived from *vector*, representing direction and magnitud
 ## Documentation & Downloads
 
 Explore complete setup instructions, details about coordinate mapping, and get the latest release installer at:
-👉 **[Documentation & Landing Page](https://j4dy.github.io/RotatedForMacMusicians/)**
+👉 **[Documentation & Landing Page](https://j4dy.github.io/Vecto/)**
 
 ---
 

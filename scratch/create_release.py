@@ -7,7 +7,7 @@ TOKEN = os.environ.get("GITHUB_TOKEN")
 if not TOKEN:
     print("Error: GITHUB_TOKEN environment variable not set.")
     exit(1)
-REPO = "j4dy/RotatedForMacMusicians"
+REPO = "j4dy/Vecto"
 TAG = "v0.2.0-beta"
 DMG_PATH = "Vecto.dmg"
 
