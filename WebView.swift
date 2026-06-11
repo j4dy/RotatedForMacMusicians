@@ -51,6 +51,32 @@ class FocusableWebView: WKWebView {
         print("WebView key down: \(event.characters ?? "")")
         super.keyDown(with: event)
     }
+    
+    // Custom context menu item to make the current page the default setting
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        
+        if !menu.items.isEmpty {
+            menu.addItem(NSMenuItem.separator())
+        }
+        
+        let menuItem = NSMenuItem(
+            title: "Make Current Page as Default Setting",
+            action: #selector(makeCurrentPageDefault),
+            keyEquivalent: ""
+        )
+        menuItem.target = self
+        menuItem.isEnabled = (self.url != nil)
+        menu.addItem(menuItem)
+    }
+    
+    @objc func makeCurrentPageDefault() {
+        if let url = self.url {
+            let urlString = url.absoluteString
+            UserDefaults.standard.set(urlString, forKey: "defaultURL")
+            print("[DEBUG] Programmatically set defaultURL via context menu to: \(urlString)")
+        }
+    }
 }
 
 class WebViewStore {
