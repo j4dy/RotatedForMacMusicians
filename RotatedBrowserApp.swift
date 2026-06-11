@@ -404,22 +404,33 @@ class RotatedWindow: NSWindow {
                         return
                     }
                 }
-            } else if (hasLeft && hasRight) || isEnter {
-                if ActiveTabState.selectedTab == 1 {
-                    // Cancel any scheduled single arrow navigation immediately if simultaneous press detected
-                    RotatedWindow.pendingNavigationWorkItem?.cancel()
-                    RotatedWindow.pendingNavigationWorkItem = nil
-                    
-                    print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
-                    NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
-                    return
-                } else if ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2 {
-                    RotatedWindow.pendingNavigationWorkItem?.cancel()
-                    RotatedWindow.pendingNavigationWorkItem = nil
-                    
-                    print("Enter triggered on Browser/Settings: enabling arrow navigation")
-                    NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
-                    return
+            } else {
+                var shouldInterceptEnter = true
+                if isEnter {
+                    if let responder = self.firstResponder as? NSView {
+                        let className = responder.className
+                        if self.isNativeView(responder) || className.contains("TextField") || className.contains("NSText") {
+                            shouldInterceptEnter = false
+                        }
+                    }
+                }
+                if (hasLeft && hasRight) || (isEnter && shouldInterceptEnter) {
+                    if ActiveTabState.selectedTab == 1 {
+                        // Cancel any scheduled single arrow navigation immediately if simultaneous press detected
+                        RotatedWindow.pendingNavigationWorkItem?.cancel()
+                        RotatedWindow.pendingNavigationWorkItem = nil
+                        
+                        print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)
+                        return
+                    } else if ActiveTabState.selectedTab == 0 || ActiveTabState.selectedTab == 2 {
+                        RotatedWindow.pendingNavigationWorkItem?.cancel()
+                        RotatedWindow.pendingNavigationWorkItem = nil
+                        
+                        print("Enter triggered on Browser/Settings: enabling arrow navigation")
+                        NotificationCenter.default.post(name: NSNotification.Name("BrowserTriggerEnterAction"), object: nil)
+                        return
+                    }
                 }
             }
             
