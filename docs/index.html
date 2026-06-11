@@ -664,30 +664,35 @@
         </div>
     </section>
 
-    <!-- Architecture Section -->
-    <section id="architecture-section" style="padding: 100px 40px; max-width: 1200px; margin: 0 auto; border-top: 1px solid var(--card-border);">
-        <div class="section-header">
-            <h2 class="section-title">System Architecture &amp; Coordinate Flow</h2>
-            <p class="section-subtitle">Deep dive into how the app intercepts window event queues, applies rotation offsets, and routes events back into the SwiftUI hierarchy.</p>
-        </div>
-        <div class="architecture-container" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 40px; text-align: center; box-shadow: var(--glow);">
-            <img src="architecture.png" alt="System Architecture Diagram" class="architecture-img" id="architecture-diagram" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 45px rgba(0,0,0,0.5); margin: 0 auto 30px auto; display: block;">
-            <p style="color: var(--text-muted); font-size: 1rem; max-width: 700px; margin: 0 auto;">Our specialized Cocoa event router intercepts low-level window events, bypasses standard coordinates conversion, and remaps clicks based on real-time hardware orientation. This guarantees WKWebView and PDFView remain fully functional under rotation.</p>
-        </div>
-    </section>
+    <!-- Technical Deep Dive: Architecture & Challenges -->
+    <section id="tech-deep-dive" style="padding: 100px 40px; max-width: 1200px; margin: 0 auto; border-top: 1px solid var(--card-border);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 40px; align-items: stretch;">
+            <!-- Column 1: System Architecture & Coordinate Flow -->
+            <div style="display: flex; flex-direction: column;">
+                <div class="section-header" style="text-align: left; margin-bottom: 25px;">
+                    <h2 class="section-title" style="font-size: 2rem; text-align: left; margin: 0 0 10px 0;">System Architecture &amp; Coordinate Flow</h2>
+                    <p class="section-subtitle" style="text-align: left; margin: 0; font-size: 0.95rem; line-height: 1.5;">Deep dive into how the app intercepts window event queues, applies rotation offsets, and routes events back into the SwiftUI hierarchy.</p>
+                </div>
+                <div class="architecture-container" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 30px; text-align: center; box-shadow: var(--glow); flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+                    <img src="architecture.png" alt="System Architecture Diagram" class="architecture-img" id="architecture-diagram" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 15px 35px rgba(0,0,0,0.4); margin: 0 auto 20px auto; display: block;">
+                    <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin: 0;">Our specialized Cocoa event router intercepts low-level window events, bypasses standard coordinates conversion, and remaps clicks based on real-time hardware orientation. This guarantees WKWebView and PDFView remain fully functional under rotation.</p>
+                </div>
+            </div>
 
-    <!-- Challenges Section -->
-    <section id="hard-part-section" style="padding: 100px 40px; max-width: 1200px; margin: 0 auto; border-top: 1px solid var(--card-border);">
-        <div class="section-header" style="margin-bottom: 40px;">
-            <h2 class="section-title">Challenges</h2>
-            <p class="section-subtitle">Bridging declarative layout systems with low-level window coordinate conversion matrices.</p>
-        </div>
-        <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 40px; border-radius: 16px; box-shadow: var(--glow); text-align: center; max-height: 300px; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; align-items: center; box-sizing: border-box;">
-            <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.6; max-width: 800px; margin-bottom: 20px;">
-                Resolving why standard SwiftUI buttons and gestures fail to receive clicks when their parent view is rotated using AppKit's <code>frameCenterRotation</code> was the primary engineering challenge. Under rotation, SwiftUI's coordinate tracking engine fails to apply the transformation matrix on mouse-up events, resulting in cancelled gestures.
-            </p>
-            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: linear-gradient(to bottom, transparent, rgba(20, 24, 46, 0.95)); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 25px; box-sizing: border-box;">
-                <a href="hardest_part_explanation.md" class="primary-btn" style="background: var(--gradient);">Read Complete Findings (hardest_part_explanation.md)</a>
+            <!-- Column 2: Challenges -->
+            <div style="display: flex; flex-direction: column;">
+                <div class="section-header" style="text-align: left; margin-bottom: 25px;">
+                    <h2 class="section-title" style="font-size: 2rem; text-align: left; margin: 0 0 10px 0;">Challenges</h2>
+                    <p class="section-subtitle" style="text-align: left; margin: 0; font-size: 0.95rem; line-height: 1.5;">Bridging declarative layout systems with low-level window coordinate conversion matrices.</p>
+                </div>
+                <div style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: 16px; box-shadow: var(--glow); text-align: center; flex-grow: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; align-items: center; box-sizing: border-box; min-height: 350px;">
+                    <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; text-align: left; margin: 0 0 auto 0;">
+                        Resolving why standard SwiftUI buttons and gestures fail to receive clicks when their parent view is rotated using AppKit's <code>frameCenterRotation</code> was the primary engineering challenge. Under rotation, SwiftUI's coordinate tracking engine fails to apply the transformation matrix on mouse-up events, resulting in cancelled gestures.
+                    </p>
+                    <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: linear-gradient(to bottom, transparent, rgba(20, 24, 46, 0.95)); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 25px; box-sizing: border-box;">
+                        <a href="hardest_part_explanation.md" class="primary-btn" style="background: var(--gradient);">Read Complete Findings (hardest_part_explanation.md)</a>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
