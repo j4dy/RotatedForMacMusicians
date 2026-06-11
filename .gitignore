@@ -4,5 +4,4 @@ net.j4dy.RotatedBrowserApp
 .swiftpm/
 *.dmg
 *.icns
-scratch/*.log
-scratch/diff_rotated.txt
+scratch/
