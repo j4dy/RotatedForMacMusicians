@@ -138,6 +138,42 @@ class WebViewStore {
             
             let windowPoint = NSPoint(x: px, y: py)
             
+            if let hitView = win.contentView?.hitTest(windowPoint) {
+                print("[DEBUG] Programmatic click hitView: \(hitView.className)")
+                
+                func findAncestor<T: NSView>(of type: T.Type, startingFrom view: NSView) -> T? {
+                    var current: NSView? = view
+                    while let v = current {
+                        if let matched = v as? T {
+                            return matched
+                        }
+                        current = v.superview
+                    }
+                    return nil
+                }
+                
+                if let button = findAncestor(of: NSButton.self, startingFrom: hitView) {
+                    print("[DEBUG] Found NSButton ancestor: \(button). Triggering performClick.")
+                    button.performClick(nil)
+                    return
+                } else if let slider = findAncestor(of: NSSlider.self, startingFrom: hitView) {
+                    print("[DEBUG] Found NSSlider ancestor: \(slider). Programmatically setting value.")
+                    let localPoint = slider.convert(windowPoint, from: nil)
+                    let fraction = localPoint.x / slider.bounds.width
+                    let clamped = min(max(fraction, 0.0), 1.0)
+                    let newValue = slider.minValue + clamped * (slider.maxValue - slider.minValue)
+                    slider.doubleValue = newValue
+                    if let target = slider.target, let action = slider.action {
+                        slider.sendAction(action, to: target)
+                    }
+                    return
+                } else if let textField = findAncestor(of: NSTextField.self, startingFrom: hitView) {
+                    print("[DEBUG] Found NSTextField ancestor: \(textField). Setting first responder.")
+                    win.makeFirstResponder(textField)
+                    return
+                }
+            }
+            
             let downEvent = NSEvent.mouseEvent(
                 with: .leftMouseDown,
                 location: windowPoint,

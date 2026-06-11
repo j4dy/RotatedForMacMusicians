@@ -996,6 +996,11 @@ struct SettingsView: View {
                                 }
                             }
                             .toggleStyle(.switch)
+                            .overlay(
+                                NativeClickOverlay {
+                                    isAdBlockerEnabled.toggle()
+                                }
+                            )
                             
                             Spacer()
                             
@@ -1062,6 +1067,11 @@ struct SettingsView: View {
                                 }
                             }
                             .toggleStyle(.switch)
+                            .overlay(
+                                NativeClickOverlay {
+                                    isRotatedMouseEnabled.toggle()
+                                }
+                            )
                             
                             Spacer()
                             
@@ -1093,6 +1103,11 @@ struct SettingsView: View {
                                 }
                             }
                             .toggleStyle(.switch)
+                            .overlay(
+                                NativeClickOverlay {
+                                    isRotateLeftEnabled.toggle()
+                                }
+                            )
                             
                             Spacer()
                             
@@ -1119,8 +1134,7 @@ struct SettingsView: View {
                         Text("Focus Box Size: \(Int(browserCursorSize)) px")
                             .font(.system(size: 16, weight: .semibold))
                         
-                        Slider(value: $browserCursorSize, in: 20...120, step: 5)
-                            .tint(.blue)
+                        NativeSlider(value: $browserCursorSize, range: 20...120)
                         
                         Text("Adjusts the width and height of the cursor target area when navigating the browser using arrows.")
                             .font(.system(size: 12))
@@ -1801,5 +1815,35 @@ struct DirectorySelectorView: View {
             }
         } catch {}
         return "Unknown size"
+    }
+}
+
+// MARK: - Native Slider for Rotated View Compatibility
+struct NativeSlider: NSViewRepresentable {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    
+    func makeNSView(context: Context) -> NSSlider {
+        let slider = NSSlider(value: value, minValue: range.lowerBound, maxValue: range.upperBound, target: context.coordinator, action: #selector(Coordinator.sliderChanged))
+        slider.isContinuous = true
+        return slider
+    }
+    
+    func updateNSView(_ nsView: NSSlider, context: Context) {
+        nsView.doubleValue = value
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(value: $value)
+    }
+    
+    class Coordinator: NSObject {
+        var value: Binding<Double>
+        init(value: Binding<Double>) {
+            self.value = value
+        }
+        @objc func sliderChanged(_ sender: NSSlider) {
+            value.wrappedValue = sender.doubleValue
+        }
     }
 }
