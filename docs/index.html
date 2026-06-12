@@ -569,10 +569,6 @@
                 <strong style="color: var(--accent); display: block; margin-bottom: 6px; font-size: 1.05rem;">Why "Vecto"?</strong>
                 <span style="color: var(--text-muted);">The name is derived from <em>vector</em>, representing direction and magnitude. In mathematics and physics, vectors define heading and coordinate translation. Because the app dynamically redirects input coordinate vectors and realigns physical screen layouts to match your rotated display, Vecto perfectly embodies this alignment transformation.</span>
             </div>
-            <div class="cta-group" style="flex-wrap: wrap;">
-                <a href="https://github.com/j4dy/Vecto/releases/download/v0.2.0-beta/Vecto.dmg" class="primary-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);" id="hero-download-btn">Download .dmg</a>
-                <a href="#setup-section" class="primary-btn" style="background: var(--gradient);" id="hero-cta-btn">Quickstart Guide</a>
-            </div>
         </div>
         
         <!-- Interactive Rotation Demo Box -->
@@ -614,23 +610,36 @@
         </div>
     </section>
 
-    <!-- Release Info & Security Banner -->
-    <section id="status-banner-section" style="max-width: 1200px; margin: -40px auto 60px auto; padding: 0 40px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px;">
-        <!-- Beta Card -->
-        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 20px; border-radius: 12px; font-size: 0.95rem; display: flex; align-items: start; gap: 14px; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.03);">
-            <span style="font-size: 1.5rem; margin-top: -2px;">⚠️</span>
-            <div>
-                <strong style="display: block; margin-bottom: 4px; color: #f87171;">Beta Release Stage</strong>
-                The application is currently in active beta. Help us make it better by reporting bugs or suggesting features on the <a href="https://github.com/j4dy/Vecto/issues" target="_blank" style="color: #ef4444; text-decoration: underline; font-weight: 600;">GitHub Issues Tracker</a>.
+    <!-- Unified Action & Status Panel -->
+    <section id="get-started-panel" style="max-width: 1200px; margin: -40px auto 60px auto; padding: 0 40px;">
+        <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 40px; box-shadow: var(--glow); backdrop-filter: blur(12px); display: grid; grid-template-columns: 1fr 2fr; gap: 40px; align-items: center; box-sizing: border-box;">
+            <!-- Column 1: Action (Downloads & Guides) -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <h3 style="font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 5px; text-align: left;">Get Vecto</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <a href="https://github.com/j4dy/Vecto/releases/download/v0.2.0-beta/Vecto.dmg" class="primary-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 0 30px rgba(16, 185, 129, 0.25); text-align: center; justify-content: center; width: 100%; margin: 0;" id="hero-download-btn">Download .dmg</a>
+                    <a href="#setup-section" class="primary-btn" style="background: var(--gradient); text-align: center; justify-content: center; width: 100%; margin: 0;" id="hero-cta-btn">Quickstart Guide</a>
+                </div>
             </div>
-        </div>
-        <!-- Security Card -->
-        <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 20px; border-radius: 12px; font-size: 0.95rem; display: flex; align-items: start; gap: 14px; box-shadow: 0 10px 30px rgba(59, 130, 246, 0.03);">
-            <span style="font-size: 1.5rem; margin-top: -2px;">🔒</span>
-            <div>
-                <strong style="display: block; margin-bottom: 4px; color: #60a5fa;">macOS Security Note</strong>
-                If Gatekeeper reports the app is "damaged", right-click and choose **Open**, or run:
-                <code style="display: block; background: #060810; padding: 6px 10px; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.05); color: #38bdf8; word-break: break-all;">xattr -cr /Applications/Vecto.app</code>
+            <!-- Column 2: Status & Security Notices -->
+            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px;">
+                <!-- Beta Card -->
+                <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.12); color: #fca5a5; padding: 20px; border-radius: 12px; font-size: 0.9rem; display: flex; align-items: start; gap: 12px; height: 100%;">
+                    <span style="font-size: 1.3rem;">⚠️</span>
+                    <div>
+                        <strong style="display: block; margin-bottom: 4px; color: #f87171;">Beta Release Stage</strong>
+                        Currently in active beta. Report issues on the <a href="https://github.com/j4dy/Vecto/issues" target="_blank" style="color: #ef4444; text-decoration: underline; font-weight: 600;">GitHub Tracker</a>.
+                    </div>
+                </div>
+                <!-- Security Card -->
+                <div style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.12); color: #93c5fd; padding: 20px; border-radius: 12px; font-size: 0.9rem; display: flex; align-items: start; gap: 12px; height: 100%;">
+                    <span style="font-size: 1.3rem;">🔒</span>
+                    <div>
+                        <strong style="display: block; margin-bottom: 4px; color: #60a5fa;">macOS Security Note</strong>
+                        If Gatekeeper blocks the app, right-click and choose **Open**, or run:
+                        <code style="display: block; background: #060810; padding: 6px 10px; border-radius: 6px; font-family: monospace; font-size: 0.8rem; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.05); color: #38bdf8; word-break: break-all;">xattr -cr /Applications/Vecto.app</code>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
