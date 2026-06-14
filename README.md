@@ -12,7 +12,7 @@ The name **Vecto** is derived from *vector*, representing direction and magnitud
 
 ## Documentation, Downloads & Demos
 
-* 📺 **[Watch the Demo Video on YouTube](https://www.youtube.com/watch?v=gm6q1teM_zw)**
+* 📺 **[Watch the Demo Video on YouTube](https://www.youtube.com/watch?v=Uy3SrTtFtZk)**
 * 👉 **[Documentation & Landing Page](https://j4dy.github.io/Vecto/)**
 
 ---
