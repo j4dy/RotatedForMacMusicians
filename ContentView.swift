@@ -1021,14 +1021,14 @@ struct SettingsView: View {
                     }
                 }
                 
-                // 2nd Section: PDF Setting
-                SettingsCard(title: "PDF Setting", icon: "doc.text") {
+                // 2nd Section: PDF / Image Setting
+                SettingsCard(title: "PDF / Image Setting", icon: "doc.text") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Default PDF Document Location")
+                        Text("Default PDF / Image Document Location")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondary)
                         HStack(spacing: 12) {
-                            TextField("Absolute local path or file:// URL", text: $defaultPDFLocation)
+                            TextField("Absolute local path (PDFs/Images) or file:// URL", text: $defaultPDFLocation)
                                 .textFieldStyle(.plain)
                                 .font(.system(.body, design: .monospaced))
                                 .padding(.horizontal, 10)
@@ -1511,7 +1511,7 @@ struct DirectorySelectorView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("PDF Directory Browser")
+                        Text("PDF / Image Directory Browser")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
                         Text(folderPath)

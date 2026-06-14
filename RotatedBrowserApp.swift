@@ -228,6 +228,31 @@ class RotatedWindow: NSWindow {
                 return
             }
             
+            // 1.7 Direct Intercept for PDF Page Turn: Left click -> Next page, Right click -> Previous page
+            if ActiveTabState.selectedTab == 1 && !ActiveTabState.isSelectorModeActive {
+                if event.type == .leftMouseDown {
+                    print("[DEBUG] Click page turn: Next Page")
+                    if ActiveTabState.isCurrentImage {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFImageGoToNext"), object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToNextPage"), object: nil)
+                    }
+                    return
+                } else if event.type == .leftMouseUp {
+                    return
+                } else if event.type == .rightMouseDown {
+                    print("[DEBUG] Click page turn: Previous Page")
+                    if ActiveTabState.isCurrentImage {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFImageGoToPrevious"), object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFGoToPreviousPage"), object: nil)
+                    }
+                    return
+                } else if event.type == .rightMouseUp {
+                    return
+                }
+            }
+            
             let hostingView = contentView.subviews.first
             let hit = contentView.hitTest(physicalPoint)
             
