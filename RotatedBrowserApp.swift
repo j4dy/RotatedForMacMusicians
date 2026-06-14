@@ -11,6 +11,7 @@ class RotatedWindow: NSWindow {
     static var lastSimultaneousPressTime: Date = Date.distantPast
     static var isSimultaneousActive: Bool = false
     static var wasDoubleSimultaneous: Bool = false
+    static var lastPDFEnterTime: Date = Date.distantPast
     
     // Recursive hit-test function that respects visual transforms
     func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
@@ -444,6 +445,17 @@ class RotatedWindow: NSWindow {
                         // Cancel any scheduled single arrow navigation immediately if simultaneous press detected
                         RotatedWindow.pendingNavigationWorkItem?.cancel()
                         RotatedWindow.pendingNavigationWorkItem = nil
+                        
+                        let now = Date()
+                        if now.timeIntervalSince(RotatedWindow.lastPDFEnterTime) < 0.35 {
+                            // Double click enter / double simultaneous press detected!
+                            print("[DEBUG] Double-click Enter in PDF mode: Go back to tabs")
+                            NotificationCenter.default.post(name: NSNotification.Name("PDFExitArrowNavigation"), object: nil)
+                            RotatedWindow.lastPDFEnterTime = .distantPast
+                            return
+                        } else {
+                            RotatedWindow.lastPDFEnterTime = now
+                        }
                         
                         print("Enter triggered (Simultaneous Left+Right, or Enter Key)")
                         NotificationCenter.default.post(name: NSNotification.Name("PDFTriggerEnterAction"), object: nil)

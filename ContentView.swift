@@ -638,6 +638,11 @@ struct ContentView: View {
             isRotateLeftEnabled.toggle()
             print("Toggled Rotate Left via shortcut: \(isRotateLeftEnabled)")
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFExitArrowNavigation"))) { _ in
+            ActiveTabState.isArrowNavigationActive = false
+            isShowingDirectorySelector = true
+            print("[DEBUG] Exited PDF Arrow Navigation: back to tab navigation")
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFTriggerEnterAction"))) { _ in
             if selectedTab == 1 {
                 if !ActiveTabState.isArrowNavigationActive {
