@@ -10,10 +10,10 @@ Because MacBooks do not have built-in monitor rotation capabilities, Vecto allow
 The name **Vecto** is derived from *vector*, representing direction and magnitude. In mathematics and physics, vectors define heading and coordinate translation. Because the app dynamically redirects input coordinate vectors and realigns physical screen layouts to match your rotated display, Vecto perfectly embodies this alignment transformation.
 
 
-## Documentation & Downloads
+## Documentation, Downloads & Demos
 
-Explore complete setup instructions, details about coordinate mapping, and get the latest release installer at:
-👉 **[Documentation & Landing Page](https://j4dy.github.io/Vecto/)**
+* 📺 **[Watch the Demo Video on YouTube](https://www.youtube.com/watch?v=gm6q1teM_zw)**
+* 👉 **[Documentation & Landing Page](https://j4dy.github.io/Vecto/)**
 
 ---
 
