@@ -569,7 +569,7 @@ struct ContentView: View {
                             .foregroundColor((selectedTab == 2 && !isArrowNavigationLocked) ? .black : .primary)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(selectedTab == 2 ? Color.yellow.opacity(0.85) : Color.gray.opacity(0.1))
+                            .background(selectedTab == 2 ? (isArrowNavigationLocked ? Color.blue.opacity(0.3) : Color.yellow.opacity(0.85)) : Color.gray.opacity(0.1))
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
@@ -644,6 +644,7 @@ struct ContentView: View {
             directorySelectedIndex = 0
             isShowingDirectorySelector = true
             ActiveTabState.isArrowNavigationActive = true
+            isArrowNavigationLocked = true
             print("[DEBUG] Double-click Enter: Reset to first page of root directory, cursor at Return to Tab Navigation")
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PDFTriggerEnterAction"))) { _ in
@@ -651,12 +652,14 @@ struct ContentView: View {
                 if !ActiveTabState.isArrowNavigationActive {
                     // First Enter: Lock arrow keys to navigate the selection list
                     ActiveTabState.isArrowNavigationActive = true
+                    isArrowNavigationLocked = true
                     print("Enter Triggered: Arrow navigation enabled for PDF Selection List")
                 } else if isShowingDirectorySelector || activePDFURL == nil {
                     // Second Enter (inside selection mode)
                     if let returnIdx = returnToTabsIndex, directorySelectedIndex == returnIdx {
                         // "Return to Tab Navigation" option selected
                         ActiveTabState.isArrowNavigationActive = false
+                        isArrowNavigationLocked = false
                         print("Enter Triggered: Selected Back button, arrows reset to tab cycling")
                     } else if let goUpIdx = goUpIndex, directorySelectedIndex == goUpIdx {
                         goToParentDirectory()
@@ -678,6 +681,7 @@ struct ContentView: View {
                                 selectedPDFFileURL = selectedURL
                                 isShowingDirectorySelector = false
                                 ActiveTabState.isArrowNavigationActive = true
+                                isArrowNavigationLocked = true
                                 print("Enter Triggered: Loaded PDF \(selectedURL.lastPathComponent), arrows enabled for page turns")
                             }
                         }
@@ -686,6 +690,7 @@ struct ContentView: View {
                     // Enter in PDF viewer mode: Switch back to directory selection but KEEP arrow keys locked to list navigation
                     isShowingDirectorySelector = true
                     ActiveTabState.isArrowNavigationActive = true
+                    isArrowNavigationLocked = true
                     print("Enter Triggered: Returned to PDF Selector, arrows remain locked inside PDF mode")
                 }
             }
