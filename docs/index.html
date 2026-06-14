@@ -572,41 +572,15 @@
         </div>
         
         <!-- Interactive Rotation Demo Box -->
-        <div class="hero-right mockup-wrapper">
-            <div class="app-mockup" id="demo-mockup">
-                <div class="app-titlebar">
-                    <span class="dot dot-red"></span>
-                    <span class="dot dot-yellow"></span>
-                    <span class="dot dot-green"></span>
-                </div>
-                <div class="app-content">
-                    <!-- PDF Display Mock -->
-                    <div class="app-pdf-view">
-                        <div class="pdf-page-mock">
-                            <div class="pdf-line"></div>
-                            <div class="pdf-line short"></div>
-                            <div class="pdf-notes"></div>
-                            <div class="pdf-line"></div>
-                            <div class="pdf-line short"></div>
-                        </div>
-                        <div class="app-page-bar">
-                            <span class="mock-btn">&lt;</span>
-                            <span>Page 1 / 18</span>
-                            <span class="mock-btn">&gt;</span>
-                        </div>
-                    </div>
-                    <!-- Navigation Tabs Mock -->
-                    <div class="app-tabbar">
-                        <span class="mock-tab">Browser</span>
-                        <span class="mock-tab active">PDF Stand</span>
-                        <span class="mock-tab">Settings</span>
-                    </div>
-                </div>
-            </div>
-            <div class="rotate-trigger-container">
-                <button class="primary-btn" id="rotate-toggle-btn" onclick="toggleMockupRotation()">Simulate Monitor Rotation</button>
-                <span class="rotate-label">Click to see how coordinate and display mapping handles rotation</span>
-            </div>
+        <!-- Hero Right: YouTube Demo Video -->
+        <div class="hero-right" style="position: relative; width: 100%; max-width: 560px; aspect-ratio: 16/9; margin: 0 auto; border: 4px solid #334155; border-radius: 16px; box-shadow: var(--glow); overflow: hidden; background: #000; box-sizing: border-box;">
+            <iframe 
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+                src="https://www.youtube.com/embed/Uy3SrTtFtZk" 
+                title="Vecto Demo Video" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowfullscreen>
+            </iframe>
         </div>
     </section>
 
@@ -643,20 +617,47 @@
             </div>
     </section>
 
-    <!-- Video Demo Section -->
-    <section id="demo-video-section" style="max-width: 900px; margin: 40px auto 80px auto; padding: 0 40px; text-align: center; box-sizing: border-box;">
+    <!-- Interactive Rotation Demo Section -->
+    <section id="demo-rotation-section" style="max-width: 900px; margin: 40px auto 80px auto; padding: 0 40px; text-align: center; box-sizing: border-box;">
         <div class="section-header" style="margin-bottom: 35px;">
-            <h2 class="section-title" style="font-size: 2.2rem; font-weight: 700; margin-bottom: 12px; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">See Vecto in Action</h2>
-            <p class="section-subtitle" style="font-size: 1.05rem; color: var(--text-muted); max-width: 600px; margin: 0 auto; line-height: 1.5;">Watch how Vecto bypasses coordinate rotation mismatches and provides seamless sheet music navigation on a portrait monitor setup.</p>
+            <h2 class="section-title" style="font-size: 2.2rem; font-weight: 700; margin-bottom: 12px; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Simulate Monitor Rotation</h2>
+            <p class="section-subtitle" style="font-size: 1.05rem; color: var(--text-muted); max-width: 600px; margin: 0 auto; line-height: 1.5;">Click below to simulate rotating your display to portrait and see how Vecto's coordinate remapping realigns mouse gestures dynamically.</p>
         </div>
-        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 16px; border: 1px solid var(--card-border); box-shadow: var(--glow); background: #000; backdrop-filter: blur(10px);">
-            <iframe 
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
-                src="https://www.youtube.com/embed/Uy3SrTtFtZk" 
-                title="Vecto Demo Video" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowfullscreen>
-            </iframe>
+        <div class="mockup-wrapper" style="margin-bottom: 30px; display: flex; justify-content: center; width: 100%;">
+            <div class="app-mockup" id="demo-mockup">
+                <div class="app-titlebar">
+                    <span class="dot dot-red"></span>
+                    <span class="dot dot-yellow"></span>
+                    <span class="dot dot-green"></span>
+                </div>
+                <div class="app-content">
+                    <!-- PDF Display Mock -->
+                    <div class="app-pdf-view">
+                        <div class="pdf-page-mock">
+                            <div class="pdf-line"></div>
+                            <div class="pdf-line short"></div>
+                            <div class="pdf-notes"></div>
+                            <div class="pdf-line"></div>
+                            <div class="pdf-line short"></div>
+                        </div>
+                        <div class="app-page-bar">
+                            <span class="mock-btn">&lt;</span>
+                            <span>Page 1 / 18</span>
+                            <span class="mock-btn">&gt;</span>
+                        </div>
+                    </div>
+                    <!-- Navigation Tabs Mock -->
+                    <div class="app-tabbar">
+                        <span class="mock-tab">Browser</span>
+                        <span class="mock-tab active">PDF Stand</span>
+                        <span class="mock-tab">Settings</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="rotate-trigger-container" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <button class="primary-btn" id="rotate-toggle-btn" onclick="toggleMockupRotation()">Simulate Monitor Rotation</button>
+            <span class="rotate-label" style="color: var(--text-muted); font-size: 0.9rem;">Click to toggle between landscape layout and physically rotated portrait layout.</span>
         </div>
     </section>
 
