@@ -7,7 +7,7 @@ class AppAnalytics {
     
     // An API Secret must be generated under Admin > Data Streams > Measurement Protocol API secrets
     // If you don't have an API Secret set up, you can leave this blank, but events might be filtered by GA.
-    private let apiSecret = "YOUR_API_SECRET_VALUE"
+    private let apiSecret = "Ndh7ppIDSKCq8Yinv8D5Jg"
     
     private var clientID: String {
         if let saved = UserDefaults.standard.string(forKey: "analytics_client_id") {

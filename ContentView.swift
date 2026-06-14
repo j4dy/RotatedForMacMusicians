@@ -869,6 +869,12 @@ struct ContentView: View {
             // Compile and set up browser content filtering rules on launch
             WebViewStore.updateAdBlockerState()
             updateCurrentImageState()
+            
+            // Track initial screen view
+            let screens = ["Browser", "PDF_Images", "Settings"]
+            if selectedTab >= 0 && selectedTab < screens.count {
+                AppAnalytics.shared.trackScreenView(screenName: screens[selectedTab])
+            }
         }
         .onChange(of: isAdBlockerEnabled) { oldValue, newValue in
             WebViewStore.updateAdBlockerState()
@@ -883,6 +889,12 @@ struct ContentView: View {
                 ActiveTabState.isSelectorModeActive = true
             }
             updateCurrentImageState()
+            
+            // Log screen view event to Google Analytics
+            let screens = ["Browser", "PDF_Images", "Settings"]
+            if newValue >= 0 && newValue < screens.count {
+                AppAnalytics.shared.trackScreenView(screenName: screens[newValue])
+            }
         }
         .onChange(of: isShowingDirectorySelector) { oldValue, newValue in
             ActiveTabState.isSelectorModeActive = newValue || activePDFURL == nil
