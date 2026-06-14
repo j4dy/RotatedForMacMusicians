@@ -312,6 +312,49 @@
                 <li><strong>Conclusion:</strong> Custom <code>convert(_:from:)</code> and <code>convert(_:to:)</code> overrides cannot be used on <code>NSHostingView</code> to handle parent visual rotations, because they break the internal alignment of SwiftUI's gesture recognition engine. Manual event forwarding remains the only viable way to send mouse inputs to SwiftUI elements inside a rotated parent view.</li>
             </ul>
         </section>
+
+        <section class="card">
+            <h2>The Production Solution (AppKit Interception Code)</h2>
+            <p>To bypass the SwiftUI mouse-up coordinate tracking bugs, Vecto implements a native AppKit forwarding architecture. Below is the production implementation details:</p>
+            
+            <h3>1. Recursive Hit-Testing and Class-Based Filtering</h3>
+            <p>We override <code>hitTest</code> on <code>RotatedContainerView</code> to recursively inspect child view hierarchies, returning the target child view only if it is a native interactive control (like a text field, web view, or button):</p>
+            <pre style="background: #060810; padding: 20px; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05); color: #a5f3fc; overflow-x: auto; margin-bottom: 25px;"><code>class RotatedContainerView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let window = self.window as? RotatedWindow else {
+            return super.hitTest(point)
+        }
+        guard let target = window.findTargetView(in: self, physicalPoint: point) else {
+            return nil
+        }
+        var current: NSView? = target
+        while let v = current {
+            let name = v.className
+            if name.contains("WK") || name.contains("PDF") || name.contains("Text") || name.contains("Field") || name.contains("Switch") || name.contains("Button") || name.contains("Slider") {
+                return target
+            }
+            current = v.superview
+        }
+        return self.subviews.first ?? target
+    }
+}</code></pre>
+
+            <h3>2. Physical to Local Coordinate Translation</h3>
+            <p>Our custom <code>RotatedWindow</code> overrides standard mouse event dispatching, translating physical screen space events into logical transformed coordinates, and forwarding them directly to target views via native event dispatching loops:</p>
+            <pre style="background: #060810; padding: 20px; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05); color: #a5f3fc; overflow-x: auto; margin-bottom: 25px;"><code>// Recursive coordinate lookup
+func findTargetView(in view: NSView, physicalPoint: NSPoint) -> NSView? {
+    let localPoint = view.convert(physicalPoint, from: view.superview)
+    if !view.bounds.contains(localPoint) {
+        return nil
+    }
+    for subview in view.subviews.reversed() {
+        if let target = findTargetView(in: subview, physicalPoint: localPoint) {
+            return target
+        }
+    }
+    return view
+}</code></pre>
+        </section>
     </main>
 
     <footer>
